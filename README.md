@@ -69,17 +69,15 @@ app/src/main/assets/web/icon/bg_mo.jpg   # 「魔王」
 
 ## 构建
 
-仓库没有附带 `gradle/wrapper/gradle-wrapper.jar`（二进制文件）。用 Android Studio 打开会自动生成；命令行可用已装的 Gradle 直接构建，或先执行 `gradle wrapper --gradle-version 9.3.1` 生成 wrapper。
-
 ```bash
-# 1. 准备 JDK 21、Gradle 9.3.1 与 Android SDK（platform 37、build-tools 35+）
+# 1. 准备 JDK 21 与 Android SDK（platform 37、build-tools 35+）；Gradle 由仓库自带的 wrapper 下载（9.3.1）
 # 2. 在 local.properties 里写 sdk.dir=/path/to/Android/sdk
 # 3. 生成自己的签名（仓库不含密钥）
 keytool -genkeypair -v -keystore my.jks -alias cx -keyalg RSA -keysize 2048 \
         -validity 10000 -storepass 你的密码 -keypass 你的密码
 
-# 4. 编译（有 wrapper 时用 ./gradlew）
-gradle :app:assembleRelease
+# 4. 编译
+./gradlew :app:assembleRelease
 ```
 
 `app/build.gradle.kts` 里的 signingConfigs 需要改成你自己的 keystore 路径与口令。
