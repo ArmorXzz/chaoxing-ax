@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-7.5.8-2f6bff?style=flat-square" alt="version">
+  <a href="https://github.com/ArmorXzz/chaoxing-ax/releases/latest"><img src="https://img.shields.io/github/v/release/ArmorXzz/chaoxing-ax?style=flat-square&color=2f6bff&label=release" alt="release"></a>
   <img src="https://img.shields.io/badge/minSdk-26-3ddc84?style=flat-square" alt="minSdk">
   <img src="https://img.shields.io/badge/targetSdk-36-3ddc84?style=flat-square" alt="targetSdk">
   <img src="https://img.shields.io/github/stars/ArmorXzz/chaoxing-ax?style=flat-square&color=f5c518" alt="stars">
@@ -22,7 +22,7 @@
 </p>
 
 <p align="center">
-  <b>简体中文</b> · <a href="https://github.com/ArmorXzz/chaoxing-ax/releases">下载 APK</a> · <a href="#从源码构建">从源码构建</a>
+  <b>简体中文</b> · <a href="https://github.com/ArmorXzz/chaoxing-ax/releases/latest">下载 APK</a> · <a href="#从源码构建">从源码构建</a>
 </p>
 
 ---
