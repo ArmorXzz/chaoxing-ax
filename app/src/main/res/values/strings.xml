@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">超星AX</string>
+    <string name="channel_progress_name">刷课进度</string>
+    <string name="channel_progress_desc">刷课时显示进度，未运行时不显示</string>
+</resources>
