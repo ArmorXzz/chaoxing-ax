@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -46,6 +48,7 @@ fun AnswersScreen(
     controller: CxController,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    listState: LazyListState = rememberLazyListState(),
 ) {
     val ctx = LocalContext.current
     val chapters = remember {
@@ -72,8 +75,8 @@ fun AnswersScreen(
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
-                title = "内置答案库",
-                largeTitle = "内置答案库",
+                title = Loc.of("内置答案库"),
+                largeTitle = Loc.of("内置答案库"),
                 subtitle = "国家安全教育 · $total 题 / ${chapters.size} 章",
                 scrollBehavior = behavior,
                 color = Color.Transparent,
@@ -81,13 +84,7 @@ fun AnswersScreen(
                 defaultWindowInsetsPadding = false,
                 largeTitleFontSize = 26.sp,
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            CxIcons.Back,
-                            contentDescription = "返回",
-                            tint = scheme.labelPrimary,
-                        )
-                    }
+                    CircleIcon(icon = CxIcons.Back, size = 40, iconSize = 20, onClick = onBack)
                 },
             )
         },
@@ -100,13 +97,14 @@ fun AnswersScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 EmptyState(
-                    title = "答案库是空的",
-                    subtitle = "确认安装包里带了 assets/answers_nation.txt",
+                    title = Loc.of("答案库是空的"),
+                    subtitle = Loc.of("确认安装包里带了 assets/answers_nation.txt"),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
         } else {
             LazyColumn(
+                state = listState,
                 contentPadding = PaddingValues(
                     top = pad.calculateTopPadding(),
                     bottom = LocalPageBottomInset.current + 24.dp,

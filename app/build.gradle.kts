@@ -12,8 +12,8 @@ android {
         applicationId = "com.armx.chaoxing"
         minSdk = 26
         targetSdk = 36
-        versionCode = 65
-        versionName = "7.5.8"
+        versionCode = 133
+        versionName = "8.1.4"
 
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
 
@@ -21,18 +21,12 @@ android {
         resourceConfigurations += listOf("zh-rCN", "en")
     }
 
-    // 仓库不含 keystore：把 cx-release.jks 放到 app/ 下（或用环境变量指定）才会签名，
-    // 否则 release 产出未签名 APK，debug 始终可用。
-    val keystorePath = System.getenv("CX_KEYSTORE") ?: "cx-release.jks"
-    val keystoreFile = file(keystorePath)
-    if (keystoreFile.exists()) {
-        signingConfigs {
-            create("release") {
-                storeFile = keystoreFile
-                storePassword = System.getenv("CX_STORE_PASS") ?: "cx123456"
-                keyAlias = System.getenv("CX_KEY_ALIAS") ?: "cx"
-                keyPassword = System.getenv("CX_KEY_PASS") ?: "cx123456"
-            }
+    signingConfigs {
+        create("release") {
+            storeFile = file("cx-release.jks")
+            storePassword = "cx123456"
+            keyAlias = "cx"
+            keyPassword = "cx123456"
         }
     }
 
@@ -40,7 +34,7 @@ android {
         release {
             isMinifyEnabled = false
             isShrinkResources = false
-            signingConfig = signingConfigs.findByName("release")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

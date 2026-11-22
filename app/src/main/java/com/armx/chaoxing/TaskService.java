@@ -89,7 +89,7 @@ public final class TaskService extends Service {
                     }
                 }
                 if (running) idleSince = 0L;
-                Thread.sleep(1000);
+                Thread.sleep(running ? 400 : 1200);
             } catch (InterruptedException ie) {
                 return;
             } catch (Throwable t) {
@@ -122,6 +122,7 @@ public final class TaskService extends Service {
     }
 
     private Notification build(List<Model.VTask> all, int done, int total, int failed) {
+        Engine engine = Engine.get(this);
         Intent open = new Intent(this, MainActivity.class);
         open.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
         PendingIntent pi = PendingIntent.getActivity(this, 0, open,
@@ -133,6 +134,8 @@ public final class TaskService extends Service {
 
         RemoteViews rv = new RemoteViews(getPackageName(), R.layout.notif_video);
         String sub = "已完成 " + done + "/" + total + (failed > 0 ? " · 失败 " + failed : "");
+        int wt = engine.workTotal(), wf = engine.workFinished();
+        if (wt > 0) sub = sub + " · 答题 " + wf + "/" + wt;
         rv.setTextViewText(R.id.notif_title, sub);
 
         int[] ids = {R.id.row1, R.id.row2, R.id.row3, R.id.row4, R.id.row5};

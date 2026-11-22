@@ -54,6 +54,33 @@ final class Crash {
         }
     }
 
+    private static final java.util.ArrayDeque<String> BREAD = new java.util.ArrayDeque<>();
+    private static final int BREAD_MAX = 60;
+
+    /** 面包屑：记录「最后做了哪些事」，native 崩溃时也能知道卡在哪一步。 */
+    static synchronized void mark(String what) {
+        try {
+            String line = new SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(new Date()) + "  " + what;
+            BREAD.addLast(line);
+            while (BREAD.size() > BREAD_MAX) BREAD.removeFirst();
+            File dir = appCtx == null ? null : appCtx.getExternalFilesDir(null);
+            if (dir != null) {
+                File f = new File(dir, "cx-trace.log");
+                if (f.length() > 512 * 1024) f.delete();
+                try (FileOutputStream out = new FileOutputStream(f, true)) {
+                    out.write((line + "\n").getBytes(StandardCharsets.UTF_8));
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    static synchronized String breadcrumbs() {
+        StringBuilder sb = new StringBuilder();
+        for (String s : BREAD) sb.append("  ").append(s).append('\n');
+        return sb.toString();
+    }
+
     private static synchronized void write(Context ctx, Thread t, Throwable e) {
         if (ctx == null || e == null) return;
         StringWriter sw = new StringWriter();
@@ -63,6 +90,9 @@ final class Crash {
         pw.println("设备: " + android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL);
         pw.println("Android: " + android.os.Build.VERSION.RELEASE + " (API " + android.os.Build.VERSION.SDK_INT + ")");
         pw.println("版本: " + Build.versionName(ctx));
+        pw.println("最近操作:");
+        pw.print(breadcrumbs());
+        pw.println();
         pw.println();
         e.printStackTrace(pw);
         pw.flush();

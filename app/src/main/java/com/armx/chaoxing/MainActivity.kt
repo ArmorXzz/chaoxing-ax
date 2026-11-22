@@ -71,7 +71,7 @@ class MainActivity : AppCompatActivity() {
         }
         controller.onTaskStarted = {
             runCatching { startService(Intent(this, TaskService::class.java)) }
-                .onFailure { Toast.makeText(this, "通知服务启动失败", Toast.LENGTH_SHORT).show() }
+                .onFailure { Toast.makeText(this, Loc.of("通知服务启动失败"), Toast.LENGTH_SHORT).show() }
         }
 
         window.statusBarColor = 0x00000000
@@ -107,7 +107,7 @@ class MainActivity : AppCompatActivity() {
             }
             startActivity(intent)
         } catch (t: Throwable) {
-            Toast.makeText(this, "无法打开系统设置", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, Loc.of("无法打开系统设置"), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -116,7 +116,7 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
         } catch (t: Throwable) {
             runCatching { startActivity(Intent(Settings.ACTION_SETTINGS)) }
-                .onFailure { Toast.makeText(this, "无法打开系统设置", Toast.LENGTH_SHORT).show() }
+                .onFailure { Toast.makeText(this, Loc.of("无法打开系统设置"), Toast.LENGTH_SHORT).show() }
         }
     }
 
@@ -127,7 +127,7 @@ class MainActivity : AppCompatActivity() {
                 .setType("image/*")
             startActivityForResult(intent, REQ_BG)
         } catch (t: Throwable) {
-            Toast.makeText(this, "无法打开图片选择器", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, Loc.of("无法打开图片选择器"), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -140,9 +140,9 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 if (ok) {
                     controller.applyWallpaper(2)
-                    controller.toast("背景已更换")
+                    controller.toast(Loc.of("背景已更换"))
                 } else {
-                    controller.toast("这张图片读不出来，换一张试试")
+                    controller.toast(Loc.of("这张图片读不出来，换一张试试"))
                 }
             }
         }, "cx-bg").start()
@@ -222,7 +222,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         moveTaskToBack(true)
-        Toast.makeText(this, "已转入后台，任务将继续运行", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, Loc.of("已转入后台，任务将继续运行"), Toast.LENGTH_SHORT).show()
     }
 
     // ------------------------------------------------------------------ 生命周期
@@ -282,9 +282,9 @@ class MainActivity : AppCompatActivity() {
         } catch (ignored: Throwable) {
             runCatching {
                 AlertDialog.Builder(this)
-                    .setTitle("启动失败")
+                    .setTitle(Loc.of("启动失败"))
                     .setMessage(t.toString())
-                    .setPositiveButton("关闭") { _, _ -> finish() }
+                    .setPositiveButton(Loc.of("关闭")) { _, _ -> finish() }
                     .show()
             }.onFailure { finish() }
         }
@@ -296,17 +296,17 @@ class MainActivity : AppCompatActivity() {
         if (record.isNullOrBlank()) return
         val body = if (record.length > 2400) record.substring(0, 2400) + "…" else record
         AlertDialog.Builder(this)
-            .setTitle("上次启动时崩溃了")
+            .setTitle(Loc.of("上次启动时崩溃了"))
             .setMessage(body)
-            .setPositiveButton("复制") { _, _ ->
+            .setPositiveButton(Loc.of("复制")) { _, _ ->
                 runCatching {
                     val cm = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
                     cm.setPrimaryClip(ClipData.newPlainText("cx_crash", record))
-                    Toast.makeText(this, "已复制，发给开发者即可", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, Loc.of("已复制，发给开发者即可"), Toast.LENGTH_SHORT).show()
                 }
                 runCatching { Crash.clear(this) }
             }
-            .setNegativeButton("知道了") { _, _ ->
+            .setNegativeButton(Loc.of("知道了")) { _, _ ->
                 runCatching { Crash.clear(this) }
             }
             .setCancelable(false)

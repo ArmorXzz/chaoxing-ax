@@ -74,7 +74,26 @@ final class AnswerBank {
                 }
             }
         }
-        return best;
+        if (best != null) return best;
+
+        // 5) 相似度兜底：题干常被平台改标点/漏字，按二元组 Dice 系数取唯一最优
+        double top = 0;
+        String topAnswer = null;
+        int ties = 0;
+        for (String[] e : list) {
+            String q = e[0];
+            if (q.length() < 8 || Math.abs(q.length() - key.length()) > key.length() / 2 + 2) continue;
+            double sc = dice(key, q);
+            if (sc > top + 1e-6) {
+                top = sc;
+                topAnswer = e[1];
+                ties = 1;
+            } else if (Math.abs(sc - top) <= 1e-6 && topAnswer != null) {
+                ties++;
+            }
+        }
+        if (topAnswer != null && top >= 0.82 && ties == 1) return topAnswer;
+        return null;
     }
 
     // ---------------------------------------------------------------- 载入
@@ -336,7 +355,76 @@ final class AnswerBank {
             }
         }
         if (bestKey != null) return new java.util.ArrayList<>(chapters.get(bestKey).values());
+
+        // 4) 宽松匹配：忽略「的/与/和/及」这类连接词，页面标题和题库章节名经常差一两个字
+        String loose = loose(bare);
+        if (loose.length() >= 4) {
+            String bestLoose = null;
+            int bestScore = 0;
+            for (String k : chapters.keySet()) {
+                String lk = loose(stripChapterNo(norm(k)));
+                if (lk.length() < 4) continue;
+                if (lk.equals(loose)) return new java.util.ArrayList<>(chapters.get(k).values());
+                int score = 0;
+                if (lk.contains(loose) || loose.contains(lk)) score = 90 + Math.min(lk.length(), loose.length());
+                else score = (int) (sim(lk, loose) * 100);
+                if (score >= 72 && score > bestScore) {
+                    bestScore = score;
+                    bestLoose = k;
+                }
+            }
+            if (bestLoose != null) return new java.util.ArrayList<>(chapters.get(bestLoose).values());
+        }
         return java.util.Collections.emptyList();
+    }
+
+    /** 二元组 Dice 系数，用来做「近似题干」兜底匹配。 */
+    private static double dice(String a, String b) {
+        if (a.length() < 2 || b.length() < 2) return 0;
+        java.util.HashMap<String, Integer> m = new java.util.HashMap<>();
+        for (int i = 0; i < a.length() - 1; i++) {
+            String g = a.substring(i, i + 2);
+            m.put(g, m.containsKey(g) ? m.get(g) + 1 : 1);
+        }
+        int hit = 0, total = 0;
+        for (int i = 0; i < b.length() - 1; i++) {
+            String g = b.substring(i, i + 2);
+            Integer c = m.get(g);
+            if (c != null && c > 0) {
+                m.put(g, c - 1);
+                hit++;
+            }
+            total++;
+        }
+        return total == 0 ? 0 : (2.0 * hit) / (a.length() - 1 + b.length() - 1);
+    }
+
+    /** 去掉连接词与标点，只留实词，用来做宽松比对。 */
+    private static String loose(String s) {
+        if (s == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if ("的与和及等之其了是、，。·—…（）()【】[]:：;；'\"“”‘’ ".indexOf(c) >= 0) continue;
+            sb.append(c);
+        }
+        return sb.toString().trim();
+    }
+
+    /** 两个字符串的相似度：公共字符数 / 较长者长度。 */
+    private static double sim(String a, String b) {
+        if (a.isEmpty() || b.isEmpty()) return 0;
+        int[] cnt = new int[65536];
+        for (int i = 0; i < a.length(); i++) cnt[a.charAt(i)]++;
+        int common = 0;
+        for (int i = 0; i < b.length(); i++) {
+            char c = b.charAt(i);
+            if (cnt[c] > 0) {
+                cnt[c]--;
+                common++;
+            }
+        }
+        return (double) common / Math.max(a.length(), b.length());
     }
 
     /** 去掉开头的「第1章」「1.」「一、」等编号，只留实质标题。 */

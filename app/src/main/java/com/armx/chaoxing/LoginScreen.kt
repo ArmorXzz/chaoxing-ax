@@ -58,9 +58,19 @@ import androidx.compose.ui.text.input.VisualTransformation
 fun LoginScreen(controller: CxController, modifier: Modifier = Modifier) {
     val scheme = COUITheme.colorScheme
     val accounts = remember(controller.logged) { controller.savedAccounts() }
-    var username by remember { mutableStateOf(accounts.firstOrNull()?.username ?: "") }
+    var username by remember {
+        mutableStateOf(controller.prefillUsername ?: accounts.firstOrNull()?.username ?: "")
+    }
     var password by remember {
-        mutableStateOf(controller.decryptPassword(accounts.firstOrNull()?.password))
+        mutableStateOf(
+            controller.prefillPassword
+                ?: controller.decryptPassword(accounts.firstOrNull()?.password)
+        )
+    }
+    // 设置页「切换账号」后，把新账号填进来
+    androidx.compose.runtime.LaunchedEffect(controller.prefillSeq) {
+        controller.prefillUsername?.let { username = it }
+        controller.prefillPassword?.let { password = it }
     }
     var remember by remember { mutableStateOf(true) }
     var showAccounts by remember { mutableStateOf(false) }
@@ -109,7 +119,7 @@ fun LoginScreen(controller: CxController, modifier: Modifier = Modifier) {
                 modifier = Modifier.padding(top = 18.dp),
             )
             Text(
-                "超星 · 学习通 · 尔雅 · 任务点助手",
+                Loc.of("超星 · 学习通 · 尔雅 · 任务点助手"),
                 fontSize = 13.sp,
                 color = scheme.labelSecondary,
                 modifier = Modifier.padding(top = 6.dp),
@@ -119,7 +129,7 @@ fun LoginScreen(controller: CxController, modifier: Modifier = Modifier) {
 
             if (accounts.isNotEmpty()) {
                 SavedAccountRow(
-                    text = accounts.firstOrNull { it.username == username }?.title() ?: "选择已保存的账号",
+                    text = accounts.firstOrNull { it.username == username }?.title() ?: Loc.of("选择已保存的账号"),
                     onClick = { showAccounts = true },
                 )
                 Spacer(Modifier.height(10.dp))
@@ -129,7 +139,7 @@ fun LoginScreen(controller: CxController, modifier: Modifier = Modifier) {
                 value = username,
                 onValueChange = { username = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = "手机号 / 用户名",
+                label = Loc.of("手机号 / 用户名"),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
             )
@@ -139,7 +149,7 @@ fun LoginScreen(controller: CxController, modifier: Modifier = Modifier) {
                     value = password,
                     onValueChange = { password = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = "密码",
+                    label = Loc.of("密码"),
                     singleLine = true,
                     visualTransformation = if (showPwd) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -150,7 +160,7 @@ fun LoginScreen(controller: CxController, modifier: Modifier = Modifier) {
                 ) {
                     Icon(
                         if (showPwd) CxIcons.EyeOff else CxIcons.Eye,
-                        contentDescription = if (showPwd) "隐藏密码" else "显示密码",
+                        contentDescription = if (showPwd) Loc.of("隐藏密码") else Loc.of("显示密码"),
                         tint = scheme.labelSecondaryVariant,
                         modifier = Modifier.size(20.dp),
                     )
@@ -164,9 +174,9 @@ fun LoginScreen(controller: CxController, modifier: Modifier = Modifier) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("记住密码", fontSize = 15.sp, color = scheme.labelPrimary)
+                    Text(Loc.of("记住密码"), fontSize = 15.sp, color = scheme.labelPrimary)
                     Text(
-                        "本地加密保存，下次自动回填",
+                        Loc.of("本地加密保存，下次自动回填"),
                         fontSize = 12.sp,
                         color = scheme.labelSecondaryVariant,
                         modifier = Modifier.padding(top = 2.dp),
@@ -190,7 +200,7 @@ fun LoginScreen(controller: CxController, modifier: Modifier = Modifier) {
                 minHeight = 46.dp,
             ) {
                 Text(
-                    if (controller.busy) "正在登录…" else "登 录",
+                    if (controller.busy) Loc.of("正在登录…") else Loc.of("登 录"),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.fillMaxWidth(),
@@ -199,7 +209,7 @@ fun LoginScreen(controller: CxController, modifier: Modifier = Modifier) {
             }
 
             Text(
-                "本地加密存储 · 仅保存登录凭据",
+                Loc.of("本地加密存储 · 仅保存登录凭据"),
                 fontSize = 11.sp,
                 color = scheme.labelSecondaryVariant,
                 modifier = Modifier
@@ -211,7 +221,7 @@ fun LoginScreen(controller: CxController, modifier: Modifier = Modifier) {
 
         OverlaySingleChoiceDialog(
             show = showAccounts,
-            title = "已保存的账号",
+            title = Loc.of("已保存的账号"),
             items = accounts.map { ListDialogItem(text = it.title(), summary = it.username) },
             selectedIndex = accounts.indexOfFirst { it.username == username },
             onSelectedIndexChange = { index ->
@@ -230,13 +240,11 @@ fun LoginScreen(controller: CxController, modifier: Modifier = Modifier) {
 @Composable
 private fun SavedAccountRow(text: String, onClick: () -> Unit) {
     val scheme = COUITheme.colorScheme
-    Card(
+    CxCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         cornerRadius = 16.dp,
-        insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-        colors = CardDefaults.defaultColors(),
-        pressFeedbackType = PressFeedbackType.Sink,
+        insideMargin = 12.dp,
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -258,7 +266,7 @@ private fun SavedAccountRow(text: String, onClick: () -> Unit) {
                 ),
                 interactionSource = switchSource,
             ) {
-                Text("切换", fontSize = 12.sp, color = scheme.labelPrimary)
+                Text(Loc.of("切换"), fontSize = 12.sp, color = scheme.labelPrimary)
             }
         }
     }

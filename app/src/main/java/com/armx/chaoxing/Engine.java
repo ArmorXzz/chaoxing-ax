@@ -56,6 +56,50 @@ public final class Engine {
     private final Http http = new Http();
     private final Context app;
     private volatile String curChapter = "";
+    /** 本次运行里已经处理过的测验，避免同一个任务点反复回填（它不会因为「只保存」变成已完成）。 */
+    private final java.util.Set<String> workDone = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final java.util.Set<String> workSeen = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private volatile int workTotal = 0;
+    private volatile int workFinished = 0;
+
+    /** 本次运行遇到的测验总数（去重）。 */
+    public int workTotal() { return workTotal; }
+
+    /** 本次运行已保存成功的测验数。 */
+    public int workFinished() { return workFinished; }
+
+    /** 一次测验的处理结果，供「答题情况」页展示。 */
+    public static final class QuizRec {
+        public final String chapter, title, detail;
+        public final int filled, total;
+        public final boolean submitted, failed;
+        public final long at;
+
+        QuizRec(String chapter, String title, int filled, int total, boolean submitted, boolean failed, String detail) {
+            this.chapter = chapter;
+            this.title = title;
+            this.filled = filled;
+            this.total = total;
+            this.submitted = submitted;
+            this.failed = failed;
+            this.detail = detail;
+            this.at = System.currentTimeMillis();
+        }
+    }
+
+    private final java.util.List<QuizRec> quizRecs =
+            java.util.Collections.synchronizedList(new java.util.ArrayList<QuizRec>());
+
+    public java.util.List<QuizRec> quizRecords() {
+        synchronized (quizRecs) { return new java.util.ArrayList<>(quizRecs); }
+    }
+
+    private void rec(boolean failed, boolean submitted, int filled, int total, String chapter, String title, String detail) {
+        synchronized (quizRecs) {
+            if (quizRecs.size() > 200) quizRecs.remove(0);
+            quizRecs.add(new QuizRec(chapter, title, filled, total, submitted, failed, detail));
+        }
+    }
     private final Store store;
     private final Random rnd = new Random();
 
@@ -524,6 +568,7 @@ public final class Engine {
         } else if ("document".equals(job.type)) {
             doDocument(course, job, info);
         } else if ("work".equals(job.type)) {
+            if (workSeen.add(jid(course, job))) workTotal++;
             doWork(course, job, info);
         }
     }
@@ -534,10 +579,27 @@ public final class Engine {
      */
     private void doWork(Model.Course course, Model.Job job, JSONObject info) {
         // 答案库随包内置，且只对「国家安全教育」这一门课生效
-        if (!isNationCourse(course.title)) return;
-        AnswerBank bank = AnswerBank.nation(app);
-        if (bank == null || (bank.size() == 0 && bank.chapterTotal() == 0)) return;
-        java.util.List<String> seq = bank.chapter(curChapter);
+        boolean aiOn = Ai.ready(app);
+        if (!isNationCourse(course.title) && !aiOn && !RemoteBank.on(app)) return;
+        if (!workDone.add(jid(course, job))) {
+            return;
+        }
+        AnswerBank bank = isNationCourse(course.title) ? AnswerBank.nation(app) : null;
+        if (bank == null) {
+            WorkLog.w(app, "doWork: 非内置题库课程，交给 AI 作答");
+        } else if (bank.size() == 0 && bank.chapterTotal() == 0) {
+            if (!aiOn && !RemoteBank.on(app)) {
+                workNote = "答案库是空的，跳过测验「" + job.name + "」";
+                WorkLog.w(app, "doWork: bank empty");
+                return;
+            }
+            bank = null;
+        }
+        java.util.List<String> seq = bank == null ? java.util.Collections.<String>emptyList()
+                : bank.chapter(curChapter);
+        WorkLog.w(app, "doWork: job=" + job.jobid + " name=" + job.name
+                + " chapter=[" + curChapter + "] seq=" + seq.size()
+                + " bankChapters=" + bank.chapterTotal());
 
         String jid = job.jobid == null ? "" : job.jobid;
         Map<String, String> p = new LinkedHashMap<>();
@@ -558,19 +620,57 @@ public final class Engine {
         p.put("courseid", course.courseId);
 
         Http.Resp r = http.get(WORK_URL, p, null);
+        WorkLog.w(app, "doWork: GET code=" + r.code + " len=" + (r.body == null ? -1 : r.body.length()));
         if (r.code != 200 || r.body == null || r.body.isEmpty()) {
             workNote = "测验「" + job.name + "」打开失败（HTTP " + r.code + "）";
             return;
         }
-        if (r.body.contains("教师未创建完成该测验")) return;
+        if (r.body.contains("教师未创建完成该测验")) {
+            workNote = "测验「" + job.name + "」教师还没发布";
+            WorkLog.w(app, "doWork: not published");
+            return;
+        }
 
         Work.Page page = Work.parse(app, r.body);
-        if (page == null || page.questions.isEmpty()) return;
+        if (page == null) {
+            workNote = "测验「" + job.name + "」页面没解析出来";
+            return;
+        }
+        if (page.questions.isEmpty()) {
+            workNote = "测验「" + job.name + "」没解析到题目（页面里没有 singleQuesId）";
+            return;
+        }
 
-        int hit = seq.isEmpty() ? Work.fill(bank, page) : Work.fillByOrder(seq, page);
+        if (page != null && !page.questions.isEmpty()) WorkLog.w(app, "doWork: fields " + Work.dumpFields(org.jsoup.Jsoup.parse(r.body)));
+
+        int hit = 0;
+        if (bank != null) {
+            hit = seq.isEmpty() ? Work.fill(bank, page) : Work.fillByOrder(seq, page);
+            if (hit == 0 && !seq.isEmpty()) hit = Work.fill(bank, page);
+        }
         int total = page.questions.size();
+        if (aiOn && Work.unanswered(page) > 0) {
+            Store st = new Store(app);
+            int byAi = Work.fillAi(app, page, st.aiKey(), "deepseek-chat");
+            WorkLog.w(app, "doWork: ai filled=" + byAi + "/" + total);
+            hit += byAi;
+        }
+        if (RemoteBank.on(app) && Work.unanswered(page) > 0) {
+            int byNet = RemoteBank.fill(app, page);
+            WorkLog.w(app, "doWork: remote filled=" + byNet + "/" + total);
+            hit += byNet;
+        }
+        WorkLog.w(app, "doWork: questions=" + total + " hit=" + hit + " types=" + types(page));
+        for (int i = 0; i < page.questions.size(); i++) {
+            Work.Q q = page.questions.get(i);
+            String raw = i < seq.size() ? seq.get(i) : "";
+            WorkLog.w(app, "  q" + (i + 1) + " type=" + q.typeCode + " opts=" + q.options.size()
+                    + " bank=[" + cut(raw) + "] -> ans=[" + cut(q.answer) + "]"
+                    + (q.answer.isEmpty() ? "  << 空，未填" : ""));
+        }
         if (hit == 0) {
             workNote = "测验「" + job.name + "」共 " + total + " 题，答案库里一道都没匹配上";
+            rec(true, false, 0, total, curChapter, job.name, workNote);
             return;
         }
 
@@ -578,15 +678,115 @@ public final class Engine {
         headers.put("X-Requested-With", "XMLHttpRequest");
         headers.put("Origin", "https://mooc1.chaoxing.com");
         headers.put("Referer", WORK_URL);
-        Http.Resp s = http.post(WORK_SUBMIT, Work.body(page), headers);
+        StringBuilder sent = new StringBuilder();
+        for (Work.Q q : page.questions) {
+            if (sent.length() > 0) sent.append("  ");
+            sent.append(q.id).append('=').append(q.answer.isEmpty() ? "<空>" : q.answer);
+        }
+        WorkLog.w(app, "doWork: sent " + cut(sent.toString()));
+
+        // 已有作答和题库一致的题目不动，全部一致时连提交都省掉，避免「先清空再重选」。
+        int changed = 0;
+        for (Work.Q q : page.questions) {
+            if (q.changed) changed++;
+        }
+        WorkLog.w(app, "doWork: saved=" + cut(savedOf(page)) + " changed=" + changed + "/" + page.questions.size());
+        if (changed == 0) {
+            workNote = "测验「" + job.name + "」答案与题库一致，跳过重复提交";
+            WorkLog.w(app, "doWork: 全部一致，跳过提交");
+            rec(false, false, hit, page.questions.size(), curChapter, job.name, "答案一致，已跳过提交");
+            return;
+        }
+        boolean submit = new Store(app).autoSubmit();
+        Http.Resp s = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            long t0 = System.currentTimeMillis();
+            s = http.post(WORK_SUBMIT, Work.body(page, submit), headers);
+            long ms = System.currentTimeMillis() - t0;
+            WorkLog.w(app, "doWork: POST#" + attempt + " code=" + s.code
+                    + " len=" + (s.body == null ? -1 : s.body.length())
+                    + " ms=" + ms + " body=" + (s.body == null ? "" : s.body.substring(0, Math.min(160, s.body.length()))));
+            if (s.code == 200) break;
+            sleep(1500 + rnd.nextInt(1200));
+        }
 
         answers.addAndGet(hit);
+        if (s.code == 200) {
+            workDone.add(jid(course, job));
+            workFinished++;
+            verifyFilled(p, page);
+            rec(false, submit, hit, page.questions.size(), curChapter, job.name,
+                    submit ? "已提交判分" : "已保存（未提交）");
+        }
         if (s.code == 200) {
             workNote = "已填好 " + hit + "/" + total + " 题并保存，还没提交，需自己到网页端点提交";
         } else {
             workNote = "测验「" + job.name + "」答案保存失败（HTTP " + s.code + "）";
+            rec(true, submit, hit, page.questions.size(), curChapter, job.name, workNote);
         }
         sleep(800 + rnd.nextInt(600));
+    }
+
+    /** 保存后回读一次：确认填空题文字真的落到了页面上。 */
+    private void verifyFilled(Map<String, String> params, Work.Page page) {
+        try {
+            Http.Resp again = http.get(WORK_URL, params, null);
+            if (again.code != 200 || again.body == null) return;
+            String html = again.body.replace(" ", "").replace("\n", "");
+            int all = 0, hit = 0;
+            for (Work.Q q : page.questions) {
+                if (!"completion".equals(q.type) && !"short".equals(q.type)) continue;
+                String text = q.answer == null ? "" : q.answer.replace("#", "").trim();
+                if (text.isEmpty()) continue;
+                all++;
+                if (html.contains(text.replace(" ", ""))) hit++;
+            }
+            if (all > 0) WorkLog.w(app, "doWork: verify 填空 " + hit + "/" + all + " 已回读");
+            // 把页面里 answer 开头的隐藏字段打出来（值截断），用于确认字段名与编码
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("name=\\\"(answer\\d+(?:_\\d+)?|blank\\d+(?:_\\d+)?)\\\"value=\\\"([^\\\"]*)\\\"")
+                    .matcher(html);
+            StringBuilder seen = new StringBuilder();
+            int n = 0;
+            while (m.find() && n < 6) {
+                seen.append(m.group(1)).append('=').append(m.group(2)).append(' ');
+                n++;
+            }
+            if (seen.length() > 0) WorkLog.w(app, "doWork: verify fields " + seen.toString().trim());
+        } catch (Throwable t) {
+            WorkLog.w(app, "doWork: verify 失败 " + t.getClass().getSimpleName());
+        }
+    }
+
+    /** 每题日志里截断长文本。 */
+    private static String savedOf(Work.Page page) {
+        StringBuilder sb = new StringBuilder();
+        for (Work.Q q : page.questions) {
+            if (sb.length() > 0) sb.append("  ");
+            sb.append(q.id).append(':').append(q.saved.isEmpty() ? "-" : q.saved);
+        }
+        return sb.toString();
+    }
+
+    private static String cut(String s) {
+        if (s == null) return "";
+        String t = s.replace('\n', ' ').trim();
+        return t.length() <= 60 ? t : t.substring(0, 60) + "…";
+    }
+
+    /** 测验去重用的键：课程 + 任务点。 */
+    private static String jid(Model.Course course, Model.Job job) {
+        return (course == null ? "" : course.courseId) + "/" + (job == null ? "" : job.jobid);
+    }
+
+    /** 每道题的类型编码，用于日志。 */
+    private static String types(Work.Page page) {
+        StringBuilder sb = new StringBuilder();
+        for (Work.Q q : page.questions) {
+            if (sb.length() > 0) sb.append('/');
+            sb.append(q.typeCode.isEmpty() ? "?" : q.typeCode);
+        }
+        return sb.toString();
     }
 
     private void doRead(Model.Course course, Model.Job job) {
@@ -810,6 +1010,26 @@ public final class Engine {
                 }
                 sleep(2000);
             }
+        }
+
+        // 结算后服务端有时要几秒才把 playTime 写进去，这里再复查三次，避免「实际已完成却判失败」
+        for (int i = 0; i < 3; i++) {
+            sleep(4000);
+            JSONObject rs = videoStatus(job);
+            if (rs == null || !"success".equals(rs.optString("status"))) continue;
+            long rp = rs.optLong("playTime", 0);
+            double rpSec = rp > 1000 ? rp / 1000.0 : rp;
+            int rd = rs.optInt("duration", serverDur);
+            if (rd <= 0) rd = serverDur;
+            if (rpSec >= rd * 0.95 || rs.optBoolean("isPassed", false)) {
+                vt.status = "完成";
+                vt.play = rd;
+                vt.progress = 1f;
+                WorkLog.w(app, "video recheck ok: " + job.name + " play=" + rpSec + "/" + rd);
+                return;
+            }
+            serverPlaySec = rpSec;
+            serverDur = rd;
         }
 
         int sp = (int) Math.round(serverPlaySec * 100 / (double) serverDur);

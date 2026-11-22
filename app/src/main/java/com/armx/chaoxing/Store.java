@@ -28,6 +28,15 @@ final class Store {
     private static final String K_BACK_ANIM = "back_anim";
     private static final String K_MEDIA_CARD = "media_card";
     private static final String K_CUSTOM_BG = "custom_bg";
+    private static final String K_AUTO_SUBMIT = "auto_submit";
+    private static final String K_AGREED = "agreed";
+    private static final String K_GUIDED = "guided";
+    private static final String K_AI_ON = "ai_on";
+    private static final String K_AI_KEY = "ai_key";
+    private static final String K_AI_MODEL = "ai_model";
+    private static final String K_BANK_ON = "bank_on";
+    private static final String K_BANK_KEY = "bank_key";
+    private static final String K_LANG = "lang";
 
     private final SharedPreferences sp;
     private final Context app;
@@ -210,11 +219,79 @@ final class Store {
     }
 
     void saveWall(int index) {
-        sp.edit().putInt(K_WALL, Math.max(0, Math.min(2, index))).apply();
+        sp.edit().putInt(K_WALL, Math.max(0, Math.min(4, index))).apply();
     }
 
     void saveCustomBg(boolean on) {
         sp.edit().putBoolean(K_CUSTOM_BG, on).apply();
+    }
+
+    // ---------------- AI 答题（DeepSeek） ----------------
+
+    boolean agreed() { return sp.getBoolean(K_AGREED, false); }
+
+    void saveAgreed(boolean v) { sp.edit().putBoolean(K_AGREED, v).apply(); }
+
+    boolean guided() { return sp.getBoolean(K_GUIDED, false); }
+
+    void saveGuided(boolean v) { sp.edit().putBoolean(K_GUIDED, v).apply(); }
+
+    boolean autoSubmit() {
+        return sp.getBoolean(K_AUTO_SUBMIT, false);
+    }
+
+    void saveAutoSubmit(boolean on) {
+        sp.edit().putBoolean(K_AUTO_SUBMIT, on).apply();
+    }
+
+    int lang() {
+        return sp.getInt(K_LANG, 0);
+    }
+
+    void saveLang(int v) {
+        sp.edit().putInt(K_LANG, v).apply();
+    }
+
+    boolean bankOn() {
+        return sp.getBoolean(K_BANK_ON, false);
+    }
+
+    void saveBankOn(boolean on) {
+        sp.edit().putBoolean(K_BANK_ON, on).apply();
+    }
+
+    String bankKey() {
+        return sp.getString(K_BANK_KEY, "");
+    }
+
+    void saveBankKey(String key) {
+        sp.edit().putString(K_BANK_KEY, key == null ? "" : key.trim()).apply();
+    }
+
+    boolean aiOn() {
+        return sp.getBoolean(K_AI_ON, false);
+    }
+
+    void saveAiOn(boolean on) {
+        sp.edit().putBoolean(K_AI_ON, on).apply();
+    }
+
+    String aiKey() {
+        return sp.getString(K_AI_KEY, "");
+    }
+
+    void saveAiKey(String key) {
+        sp.edit().putString(K_AI_KEY, key == null ? "" : key.trim()).apply();
+    }
+
+    /** deepseek-chat（默认）或 deepseek-reasoner。 */
+    String aiModel() {
+        String m = sp.getString(K_AI_MODEL, "deepseek-chat");
+        return m == null || m.isEmpty() ? "deepseek-chat" : m;
+    }
+
+    void saveAiModel(String model) {
+        sp.edit().putString(K_AI_MODEL, model == null || model.isEmpty() ? "deepseek-chat" : model).apply();
     }
 
     java.io.File bgFile() {

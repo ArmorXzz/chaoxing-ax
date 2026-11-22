@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,9 +16,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.suqi8.coui.kmp.basic.Card
@@ -47,6 +53,7 @@ import io.github.suqi8.coui.kmp.basic.rememberTopAppBarState
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import io.github.suqi8.coui.kmp.utils.overScrollVertical
 import kotlinx.coroutines.delay
+import androidx.compose.runtime.DisposableEffect
 
 private val OK_COLOR = Color(0xFF22C55E)
 private val ERR_COLOR = Color(0xFFEF4444)
@@ -76,7 +83,10 @@ private class VGroup(val name: String, val items: List<Model.VTask>) {
 fun ProgressScreen(
     controller: CxController,
     onOpenFailures: () -> Unit,
+    onOpenQuiz: () -> Unit,
     modifier: Modifier = Modifier,
+    contentTop: Dp = 0.dp,
+    listState: LazyListState = rememberLazyListState(),
 ) {
     val scheme = COUITheme.colorScheme
     val total = controller.total
@@ -99,11 +109,11 @@ fun ProgressScreen(
         running && playing > 0 -> "正在播放 $playing 个视频"
         running -> "正在检测视频任务"
         total > 0 && failed > 0 -> "任务已结束"
-        total > 0 -> "全部完成"
+        total > 0 -> Loc.of("全部完成")
         else -> "等待任务启动"
     }
     val subtitle = when {
-        total == 0 -> "回到「任务」页勾选课程并点「开始执行」"
+        total == 0 -> Loc.of("回到「任务」页勾选课程并点「开始执行」")
         running -> "已完成 $done / $total · 失败 $failed"
         else -> "本轮共 $total 个任务点 · 失败 $failed"
     }
@@ -116,29 +126,55 @@ fun ProgressScreen(
         }
     }
 
+    val scrollLink = LocalCxScrollLink.current
+    // 折叠进度：列表滚过的距离映射到 0..1（220dp 走完）
+    DisposableEffect(Unit) { onDispose { scrollLink.fraction = 0f } }
+
+    val barState = rememberTopAppBarState()
+    val behavior = COUIScrollBehavior(barState)
+    val limitPx = with(androidx.compose.ui.platform.LocalDensity.current) { 58.dp.toPx() }
+    androidx.compose.runtime.SideEffect {
+        if (barState.heightOffsetLimit != limitPx) barState.heightOffsetLimit = limitPx
+    }
+    androidx.compose.runtime.SideEffect {
+        barState.heightOffset = limitPx * scrollLink.fraction.coerceIn(0f, 1f)
+    }
+    // 自绘的滚动比例直接喂给 COUI：nestedScroll 这条链路在部分机型上收不到增量，
     Scaffold(
         modifier = modifier,
         containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {},
+        topBar = {
+            TopAppBar(
+                    title = Loc.of("进度"),
+                    subtitle = Loc.of("实时显示所有并行视频的播放状态"),
+                    scrollBehavior = behavior,
+                    hideSubtitleOnCollapse = false,
+                    color = Color.Transparent,
+                    showDivider = false,
+                )
+        },
     ) { pad ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .overScrollVertical(),
-            contentPadding = PaddingValues(top = pad.calculateTopPadding() + 4.dp, bottom = LocalPageBottomInset.current + 24.dp),
+                .overScrollVertical()
+                .nestedScroll(behavior.nestedScrollConnection),
+            contentPadding = PaddingValues(top = pad.calculateTopPadding(), bottom = LocalPageBottomInset.current + 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item(key = "head") { PageTitle("进度", "实时显示所有并行视频的播放状态") }
 
             if (total == 0 && !running) {
                 item(key = "empty") {
-                    Box(Modifier.fillMaxWidth().padding(top = 48.dp)) {
+                    // 用整块可用高度居中，避免空态被顶到标题栏上面
+                    Box(Modifier.fillParentMaxSize().padding(top = 12.dp)) {
                         EmptyState(
-                            title = "还没有视频任务",
-                            subtitle = "回到「任务」页勾选课程并点「开始执行」",
-                            actionText = "去选课",
+                            title = Loc.of("还没有视频任务"),
+                            subtitle = Loc.of("回到「任务」页勾选课程并点「开始执行」"),
+                            actionText = Loc.of("去选课"),
                             onActionClick = { controller.switchTab(0) },
+                            modifier = Modifier.align(Alignment.Center),
                         )
                     }
                 }
@@ -187,7 +223,49 @@ fun ProgressScreen(
                 }
             }
 
-            item(key = "title") { Section("视频任务点") }
+            item(key = "quiz") {
+                Box(Modifier.padding(horizontal = 16.dp)) {
+                    CxCard(cornerRadius = 18.dp, insideMargin = 14.dp, onClick = onOpenQuiz) {
+                        Column(Modifier.fillMaxWidth()) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    Loc.of("答题进度"),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = scheme.labelPrimary,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(
+                                    if (controller.quizTotal > 0) "${controller.quizDone}/${controller.quizTotal}" else "—",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (controller.quizTotal > 0 && controller.quizDone >= controller.quizTotal)
+                                        Color(0xFF22C55E) else scheme.primary,
+                                )
+                            }
+                            Text(
+                                "已填 ${controller.answers} 题 · " +
+                                    if (controller.autoSubmit) "自动提交已开启" else "只保存不提交",
+                                fontSize = 12.sp,
+                                color = scheme.labelSecondaryVariant,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                            LinearProgressIndicator(
+                                progress = if (controller.quizTotal > 0)
+                                    controller.quizDone.toFloat() / controller.quizTotal else 0f,
+                                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                                height = 5.dp,
+                                colors = ProgressIndicatorDefaults.progressIndicatorColors(
+                                    foregroundColor = scheme.primary,
+                                    backgroundColor = scheme.cardPressed,
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+
+            item(key = "title") { Section(Loc.of("视频任务点")) }
 
             items(groups, key = { it.name }) { group ->
                 Box(Modifier.padding(horizontal = 16.dp)) {
@@ -299,8 +377,8 @@ fun FailuresScreen(controller: CxController, onBack: () -> Unit, modifier: Modif
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = "失败详情",
-                largeTitle = "失败详情",
+                title = Loc.of("失败详情"),
+                largeTitle = Loc.of("失败详情"),
                 subtitle = "共 ${rows.size} 条记录",
                 scrollBehavior = behavior,
                 defaultWindowInsetsPadding = false,
@@ -309,9 +387,7 @@ fun FailuresScreen(controller: CxController, onBack: () -> Unit, modifier: Modif
                 expandedHeight = 52.dp,
                 largeTitleFontSize = 26.sp,
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(CxIcons.Back, contentDescription = "返回", tint = scheme.labelPrimary)
-                    }
+                    CircleIcon(icon = CxIcons.Back, size = 40, iconSize = 20, onClick = onBack)
                 },
             )
         },
@@ -319,8 +395,7 @@ fun FailuresScreen(controller: CxController, onBack: () -> Unit, modifier: Modif
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .overScrollVertical()
-                .nestedScroll(behavior.nestedScrollConnection),
+                .overScrollVertical(),
             contentPadding = PaddingValues(
                 start = 16.dp,
                 end = 16.dp,
@@ -332,7 +407,7 @@ fun FailuresScreen(controller: CxController, onBack: () -> Unit, modifier: Modif
             if (rows.isEmpty()) {
                 item(key = "empty") {
                     Box(Modifier.fillMaxWidth().padding(top = 40.dp)) {
-                        EmptyState(title = "没有失败记录", subtitle = "当前所有任务点都正常")
+                        EmptyState(title = Loc.of("没有失败记录"), subtitle = Loc.of("当前所有任务点都正常"))
                     }
                 }
                 return@LazyColumn
