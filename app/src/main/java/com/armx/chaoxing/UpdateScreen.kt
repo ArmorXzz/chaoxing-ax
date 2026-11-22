@@ -140,12 +140,7 @@ fun UpdateScreen(
         containerColor = Color.Transparent,
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         topBar = {
-            val f = behavior.state.collapsedFraction
-            Box(
-                Modifier.fillMaxWidth()
-                    .background(scheme.backgroundWithCard.copy(alpha = 0.94f * f))
-            ) {
-                TopAppBar(
+            TopAppBar(
                 title = Loc.of("软件更新"),
                 navigationIcon = {
                     CircleIcon(icon = CxIcons.Back, size = 40, iconSize = 20, onClick = onBack)
@@ -153,9 +148,8 @@ fun UpdateScreen(
                 scrollBehavior = behavior,
                 defaultWindowInsetsPadding = false,
                 color = Color.Transparent,
-                    showDivider = false,
-                )
-            }
+                showDivider = false,
+            )
         },
         bottomBar = {
             Column(
