@@ -12,8 +12,8 @@ android {
         applicationId = "com.armx.chaoxing"
         minSdk = 26
         targetSdk = 36
-        versionCode = 140
-        versionName = "8.1.10"
+        versionCode = 141
+        versionName = "8.1.11"
 
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
 

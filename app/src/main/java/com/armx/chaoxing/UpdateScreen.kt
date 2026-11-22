@@ -15,6 +15,8 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -108,7 +110,12 @@ fun UpdateScreen(
         containerColor = Color.Transparent,
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
+            val f = behavior.state.collapsedFraction
+            Box(
+                Modifier.fillMaxWidth()
+                    .background(scheme.backgroundWithCard.copy(alpha = 0.94f * f))
+            ) {
+                TopAppBar(
                 title = Loc.of("软件更新"),
                 navigationIcon = {
                     CircleIcon(icon = CxIcons.Back, size = 40, iconSize = 20, onClick = onBack)
@@ -116,8 +123,9 @@ fun UpdateScreen(
                 scrollBehavior = behavior,
                 defaultWindowInsetsPadding = false,
                 color = Color.Transparent,
-                showDivider = false,
-            )
+                    showDivider = false,
+                )
+            }
         },
         bottomBar = {
             Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp)) {
@@ -245,10 +253,9 @@ fun UpdateScreen(
                                     )
                                 }
                                 androidx.compose.animation.AnimatedVisibility(visible = notesOpen) {
-                                    Column(Modifier.height(280.dp).verticalScroll(rememberScrollState())) {
-                                        BasicText(
+                                    Column(Modifier.height(320.dp).verticalScroll(rememberScrollState())) {
+                                        ReleaseNotes(
                                             info!!.notes,
-                                            style = COUITheme.textStyles.bodyS.copy(color = scheme.labelSecondary),
                                             modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                                         )
                                     }
@@ -310,5 +317,70 @@ private fun Spin(size: androidx.compose.ui.unit.Dp) {
             size = Size(this.size.width - 3f, this.size.height - 3f),
             style = Stroke(width = 2.2f, cap = StrokeCap.Round),
         )
+    }
+}
+
+/** 轻量 Markdown：标题、列表、代码块、行内强调与反引号，够读更新说明就行。 */
+private fun mdInline(raw: String): String {
+    var t = raw
+    t = t.replace(Regex("!?\\[([^\\]]*)]\\([^)]*\\)"), "$1")
+    t = t.replace("**", "").replace("__", "")
+    t = t.replace("`", "")
+    t = t.replace(Regex("^\\s*>\\s?"), "")
+    return t.trim()
+}
+
+@Composable
+private fun ReleaseNotes(text: String, modifier: Modifier = Modifier) {
+    val scheme = COUITheme.colorScheme
+    val lines = remember(text) { text.replace("\r\n", "\n").split("\n") }
+    Column(modifier) {
+        var inCode = false
+        for (raw in lines) {
+            val line = raw.trimEnd()
+            when {
+                line.trimStart().startsWith("```") -> {
+                    inCode = !inCode
+                    Spacer(Modifier.height(4.dp))
+                }
+                inCode -> Text(
+                    line,
+                    fontSize = 11.5.sp,
+                    color = scheme.labelSecondary,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(scheme.cardPressed.copy(alpha = 0.55f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                )
+                line.startsWith("### ") -> {
+                    Spacer(Modifier.height(8.dp))
+                    Text(mdInline(line.removePrefix("### ")), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = scheme.labelPrimary)
+                }
+                line.startsWith("## ") -> {
+                    Spacer(Modifier.height(8.dp))
+                    Text(mdInline(line.removePrefix("## ")), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = scheme.labelPrimary)
+                }
+                line.startsWith("# ") -> {
+                    Spacer(Modifier.height(10.dp))
+                    Text(mdInline(line.removePrefix("# ")), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = scheme.labelPrimary)
+                }
+                line.startsWith("- ") || line.startsWith("* ") -> Text(
+                    "· " + mdInline(line.substring(2)),
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp,
+                    color = scheme.labelSecondary,
+                    modifier = Modifier.padding(start = 2.dp, top = 2.dp),
+                )
+                line.isBlank() -> Spacer(Modifier.height(6.dp))
+                else -> Text(
+                    mdInline(line),
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp,
+                    color = scheme.labelSecondary,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+        }
     }
 }
