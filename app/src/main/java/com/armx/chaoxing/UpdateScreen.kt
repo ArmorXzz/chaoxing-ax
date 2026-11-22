@@ -89,7 +89,7 @@ fun UpdateScreen(
             val r = withContext(Dispatchers.IO) { runCatching { Update.latest() } }
             r.onSuccess {
                 info = it
-                phase = if (it.code > BuildInfo.VERSION_CODE) UpPhase.Newer else UpPhase.Latest
+                phase = if (it.code > Update.code(BuildInfo.VERSION)) UpPhase.Newer else UpPhase.Latest
             }.onFailure {
                 err = it.message ?: Loc.of("网络错误")
                 phase = UpPhase.Failed
