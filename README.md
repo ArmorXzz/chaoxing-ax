@@ -1,163 +1,99 @@
-<p align="center">
-  <img src="docs/icon.png" width="132" alt="超星AX"/>
-</p>
+# 超星AX
 
-<h1 align="center">超星AX</h1>
+超星学习通任务点的 Android 客户端。逻辑层是原生 Java，界面用 Jetpack Compose + [COUI](https://github.com/suqi8/coui)（ColorOS 17 风格组件）。
 
-<p align="center">
-  <b>面向 Android 的超星视频任务自动化客户端 · COUI 17 界面</b>
-</p>
+> 仅供个人学习研究使用。自动化操作可能违反平台条款，风险自负。
 
-<p align="center">
-  登录、拉课程、跑任务点、答测验、进度通知，全部在手机本地完成，不依赖电脑端服务。<br>
-  界面按 ColorOS 17 设计规范重写，逻辑层 100% 原生 Java。
-</p>
+## 现状
 
-<p align="center">
-  <a href="https://github.com/ArmorXzz/chaoxing-ax/releases/latest"><img src="https://img.shields.io/github/v/release/ArmorXzz/chaoxing-ax?style=flat-square&color=2f6bff&label=release" alt="release"></a>
-  <img src="https://img.shields.io/badge/minSdk-26-3ddc84?style=flat-square" alt="minSdk">
-  <img src="https://img.shields.io/badge/targetSdk-36-3ddc84?style=flat-square" alt="targetSdk">
-  <img src="https://img.shields.io/github/stars/ArmorXzz/chaoxing-ax?style=flat-square&color=f5c518" alt="stars">
-  <img src="https://img.shields.io/badge/license-Apache--2.0-8957e5?style=flat-square" alt="license">
-</p>
+| 项 | 值 |
+| --- | --- |
+| 版本 | 8.1.6（versionCode 136） |
+| minSdk / targetSdk / compileSdk | 26 / 36 / 37 |
+| ABI | arm64-v8a、x86_64 |
+| JDK / Gradle / AGP | 21 / 9.3.1 / 9.1 |
 
-<p align="center">
-  <b>简体中文</b> · <a href="https://github.com/ArmorXzz/chaoxing-ax/releases/latest">下载 APK</a> · <a href="#从源码构建">从源码构建</a>
-</p>
+## 能做什么
 
----
+- 账号登录，cookie 持久化，可选自动登录
+- 课程 / 章节 / 任务点解析，视频任务点心跳上报与补点
+- 视频结算复查：服务端 playTime 写入慢时不会直接判失败
+- 文档、阅读类任务点
+- 章节测验：内置答案库（国家安全教育 44 章 132 题）按章节顺序填写
+- 判断题按选项文本判定，填空按 `answerEditor{id}{n}` + `tiankongsize{id}` 提交
+- 与已有作答一致时不覆盖（`saved` / `changed` 比对）
+- 可选：填完直接提交判分
+- 可选：DeepSeek 补题库未覆盖的题（只保存，不提交）
+- 可选：题库海远程精确检索（自备卡密）
+- 前线服务 + 通知进度，任务在后台继续
+- 简体 / 繁體 / English / 日本語
 
-## 截图
+## 不做什么
 
-<p align="center">
-  <img src="docs/screenshot-task.jpg" width="330" alt="任务页"/>
-</p>
+- 不内置、不代理任何题库服务，远程题库需要自己填地址与卡密
+- 不内置成人图源，随机壁纸只取公开的二次元壁纸接口
+- 不上传账号、cookie、答题记录到任何服务器；AI 与远程题库请求只带题目文本和自己的 Key
 
-<p align="center">
-  <sub>任务页：课程卡片列表 · 圆形全选/全不选/刷新 · 悬浮执行键与底栏（夜间模式）</sub>
-</p>
+## 环境
 
-## 界面
+需要 Android SDK Platform 37（`platforms;android-37.0`）与 Build-Tools 36。JDK 21。
 
-整个界面用 [COUI](https://github.com/suqi8/coui)（ColorOS 17 设计语言的 Compose 组件库）搭出来，不是套壳网页：
+```bash
+# 本机
+echo "sdk.dir=$ANDROID_HOME" > local.properties
+./gradlew :app:assembleDebug
+```
 
-- **根容器**：`Scaffold` + 悬浮 `FloatingNavigationBar`，页面用 `LazyColumn` + `overScrollVertical` 的橡皮筋回弹
-- **卡片**：`SquircleShape` 连续曲率圆角 + 0.8dp 描边，描边跟着按压一起缩，`PressFeedbackType` 走 COUI 原生反馈
-- **设置页**：`PreferenceCategory` + `CardListGroup` + `SwitchPreference / SliderPreference / OverlayDropdownPreference`，分割线与行距由组件负责
-- **材质**：`rememberLayerBackdrop` + `couiViewBlur` 给底栏与弹层做真材质模糊（Android 13+ 生效，以下自动回退不透明）
-- **动效**：底栏切页是 `HorizontalPager` 非线性缓动滑动；二级页有独立入场过渡，并接上 Android 预测式返回（跟手右移、取消回弹）
+签名是可选的：把 keystore 放 `app/cx-release.jks`，或用环境变量 `CX_KEYSTORE` / `CX_STORE_PASS` / `CX_KEY_ALIAS` / `CX_KEY_PASS` 指定。没有 keystore 时只出 debug 包。
 
-## 功能
+CI 走 GitHub Actions，`ubuntu-latest` 预装 SDK，不再依赖第三方 setup action；`platforms;android-37.0` 需要显式安装。
 
-| 模块 | 说明 |
-|---|---|
-| 账号 | 手机号 + 密码登录（AES-CBC 加密参数），Cookie 与会话只存本机；保存账号快速切换、密码可见小眼睛、自动登录开关 |
-| 课程 | 一次拉全量课程，卡片列表逐门勾选（默认全不选），全选 / 全不选 / 刷新 |
-| 刷课 | 任务点自动播放并定时上报心跳，可设倍速与并发；国家安全教育课支持循环刷到章节全部完成 |
-| 测验 | 读题库页取题，按内置答案库顺序填写，`pyFlag=1` 只保存不提交；单选 / 多选 / 填空 / 判断 / 简答，题干做去噪与多空拆分 |
-| 进度 | 按视频合并的进度卡，200ms 补间读秒；失败可在「失败详情」二级页看原因与重试次数 |
-| 通知 | 刷课期间通知栏显示实时进度（含每路视频读秒），可直接在通知里停止 |
-| 外观 | 浅色 / 深色 / 跟随系统；壁纸、背景模糊强度、材质模糊；桌面图标自适应 |
-
-## 技术栈
-
-| 层 | 选型 |
-|---|---|
-| 语言 | Kotlin（界面）+ Java（逻辑层） |
-| UI | Jetpack Compose 1.11 + COUI 2.0.0（`coui-ui` / `coui-preference` / `coui-icons` / `coui-blur` / `coui-squircle`） |
-| 构建 | AGP 9.1 + Gradle 9.3.1 + JDK 21，`compileSdk 37` / `targetSdk 36` / `minSdk 26` |
-| 网络 | `HttpURLConnection` + jsoup 解析 HTML |
-| 存储 | `SharedPreferences` |
-| 签名 | 自己的 keystore（仓库不含任何密钥） |
-
-## 项目结构
-
-<details>
-<summary>展开目录</summary>
+## 目录
 
 ```
 app/src/main/java/com/armx/chaoxing/
-├── Crypt.java          AES/CBC 登录参数加密
-├── Http.java           Cookie 保持、重定向、超时
-├── Html.java           课程 / 章节 / 任务点 / 题目解析
-├── Engine.java         刷课主循环（视频心跳、结算、阅读、文档、测验）
-├── Work.java           测验作答与答案清洗
-├── AnswerBank.java     内置答案库读取与章节匹配
-├── CxFont.java         字体反爬（字形 hash → 码位）
-├── Model.java          Course / Point / VTask / Question
-├── Store.java          本地设置与账号持久化
-├── TaskService.java    前台服务 + 通知进度
-├── MainActivity.java   容器与生命周期
-├── RootScreen.kt       根容器：Scaffold / 底栏 / 二级页 / 预测式返回
-├── LoginScreen.kt      登录页
-├── TasksScreen.kt      任务页
-├── ProgressScreen.kt   进度页 + 失败详情
-├── SettingsScreen.kt   设置页（Preference 组件）
-├── AnswersScreen.kt    内置答案库
-├── Components.kt       共用组件（CxCard / PageTitle / IconPill）
-├── CxController.kt     界面状态与业务桥接
-├── CxMaterial.kt       材质模糊 provider
-├── CxTheme.kt / CxIcons.kt / CxTouch.kt / CxFx.kt / BuildInfo.kt
+  Crypt.java        登录密码 AES-CBC（key/iv = u2oh6Vu^HWe4_AES）
+  Http.java         HttpURLConnection 封装，cookie 管理，重定向上限 4
+  Html.java         cards / 课程 / 章节解析，mArg 提取
+  Engine.java       刷课主循环：视频打点、结算复查、测验、循环刷课
+  Work.java         测验页面解析、答案组装、判断题与填空题处理
+  AnswerBank.java   本地题库 + 章节匹配（精确 / 去编号 / 包含 / 宽松 / Dice）
+  RemoteBank.java   远程题库（可选）
+  Ai.java           DeepSeek 调用（可选）
+  Store.java        SharedPreferences 配置
+  CxFont.java       页面自定义字体的字形反查（font_map.txt）
+  TaskService.java  前台服务与通知
+  RootScreen.kt     根容器：主题、壁纸、底栏、二级页路由
+  TasksScreen.kt / ProgressScreen.kt / SettingsScreen.kt
+  AnswersScreen.kt / QuizScreen.kt / AboutScreen.kt / UpdateScreen.kt
+  AiScreen.kt / LoginScreen.kt
+  Components.kt     卡片、行级弥散光、圆形按钮等自绘组件
+  Loc.kt            四语言词条
 ```
 
-</details>
+`assets/font_map.txt` 是字形轮廓 md5 → 码位的查表结果（1.1 MB），`assets/answers_nation.txt` 是规范化后的题库（44 章 132 题）。
 
-## 仓库里没有的东西
+## 实现要点
 
-为了体积与版权，仓库**不包含**：
+- 登录密码不是明文：`AES/CBC/PKCS5Padding`，key/iv 都是 `u2oh6Vu^HWe4_AES`，再 base64
+- 视频打点签名：
+  `enc = md5("[" + clazzId + "][" + uid + "][" + jobid + "][" + objectid + "][" + (int)play*1000 + "][d_yHJ!$pdA~5][" + (int)dur*1000 + "][0_" + dur + "]")`
+- 心跳间隔 `20 + rnd(21)` 秒，`speed` 上限 2.0；播放完先查一次结算，未达标补点，最多 +180 秒
+- 单选题题库里可能存的是「A」或「A.邓小平」，按字母取，字母对不上时按选项文本重新定位
+- 填空题作答字段随版心变化，当前按真机抓到的 `answerEditor{id}{n}` 提交，旧字段一并带上做兼容
 
-- `app/src/main/assets/web/icon/bg.jpg`、`bg_mo.jpg`（内置壁纸，插画版权归原作者）
-- 任何 keystore / 签名文件、`local.properties`
+## 已知问题
 
-没有壁纸时应用会退化成纯色背景，功能不受影响。想恢复内置壁纸，放成：
+- 只有一台 OnePlus PJZ110 / Android 17 的真机验证过，其他 ROM 的动画与通知表现未测
+- 折叠标题是自己喂 `TopAppBarState.heightOffset` 实现的（`nestedScroll` 在部分机型收不到增量），COUI 升级后可能失效
+- 简答题（`short`）只做空位填充，没有语义判断
+- 初始化引导与协议文案仍是简体，未接入 `Loc`
+- 壁纸 `bg.jpg` / `bg_mo.jpg` 不在仓库内（版权归《星塔旅人》/ 悠星），需要自备后重新打包
 
-```
-app/src/main/assets/web/icon/bg.jpg      # 「夏花」
-app/src/main/assets/web/icon/bg_mo.jpg   # 「魔王」
-```
+## 第三方式
 
-建议 1240×1754 以内、JPEG。
-
-## 从源码构建
-
-```bash
-# 1. 准备 JDK 21 与 Android SDK（platform 37、build-tools 35+）
-#    Gradle 不用装，仓库自带 wrapper（9.3.1）
-
-# 2. 指定 SDK 路径
-echo "sdk.dir=/path/to/Android/sdk" > local.properties
-
-# 3. 出包
-./gradlew :app:assembleDebug      # 调试包，直接能装
-./gradlew :app:assembleRelease    # 正式包
-```
-
-`release` 默认**不签名**（仓库不含密钥）。要签自己的包，把 keystore 放成 `app/cx-release.jks`，或用环境变量：
-
-```bash
-export CX_KEYSTORE=/abs/path/my.jks
-export CX_STORE_PASS=你的口令
-export CX_KEY_ALIAS=你的别名
-export CX_KEY_PASS=你的口令
-```
-
-也可以自己生成一把：
-
-```bash
-keytool -genkeypair -v -keystore app/cx-release.jks -alias cx \
-        -keyalg RSA -keysize 2048 -validity 10000
-```
-
-## 持续集成
-
-`.github/workflows/build.yml` 在每次 push / PR 时用 JDK 21 + SDK 37 跑 `:app:assembleDebug`，产物作为 artifact 上传。因为不含密钥，CI 只出调试包。
-
-## 免责声明
-
-本项目仅供**个人学习与技术研究**使用（Android 逆向、Compose 自定义组件、HTTP 协议分析）。使用本工具刷课可能违反超星学习通的服务条款与所在学校的学术规范，由此产生的一切后果由使用者自行承担。请勿用于商业用途。
-
-## 第三方与许可
-
-- [COUI](https://github.com/suqi8/coui) —— Apache-2.0，界面组件与设计规范来源
-- [jsoup](https://jsoup.org/) —— MIT
-- 项目本体以 **Apache-2.0** 发布，详见 [`LICENSE`](LICENSE)
+| 组件 | 许可 |
+| --- | --- |
+| COUI（suqi8/coui） | Apache-2.0 |
+| Jetpack Compose | Apache-2.0 |
+| jsoup | MIT |
