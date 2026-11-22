@@ -140,6 +140,10 @@ class CxController(val app: Context) {
         lang = v.coerceIn(0, 3)
         store.saveLang(lang)
         Loc.set(lang)
+        // 同步到系统的「应用 → 语言」，Android 13+ 会重建 Activity 使资源与新语言一致
+        androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(
+            androidx.core.os.LocaleListCompat.forLanguageTags(CxLocale.tagOf(lang))
+        )
     }
 
     fun applyBankOn(on: Boolean) {

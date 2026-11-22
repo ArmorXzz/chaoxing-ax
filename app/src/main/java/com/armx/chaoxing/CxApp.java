@@ -9,7 +9,11 @@ public class CxApp extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
-        Loc.INSTANCE.set(new Store(this).lang());
+        int idx = CxLocale.INSTANCE.indexOf(
+                androidx.core.os.LocaleListCompat.getAdjustedDefault().toLanguageTags());
+        androidx.core.os.LocaleListCompat app = androidx.appcompat.app.AppCompatDelegate.getApplicationLocales();
+        if (!app.isEmpty()) idx = CxLocale.INSTANCE.indexOf(app.toLanguageTags());
+        Loc.INSTANCE.set(idx >= 0 ? idx : new Store(this).lang());
         Crash.install(this);
         Crash.mark("boot " + BuildInfo.VERSION);
         try {
