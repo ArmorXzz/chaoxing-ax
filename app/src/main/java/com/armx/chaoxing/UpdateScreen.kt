@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -110,6 +111,7 @@ fun UpdateScreen(
     var dl by remember { mutableStateOf(false) }
     var pct by remember { mutableFloatStateOf(0f) }
     var dlErr by remember { mutableStateOf("") }
+    var notesOpen by remember { mutableStateOf(true) }
 
     fun startDownload() {
         if (dl) return
@@ -308,20 +310,44 @@ fun UpdateScreen(
 
                     if (info?.notes?.isNotEmpty() == true) {
                         Spacer(Modifier.height(14.dp))
-                        CxCard(cornerRadius = 20.dp) {
-                            Column(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 18.dp)) {
-                                Text(
-                                    Loc.of("更新说明"),
-                                    fontSize = 15.sp,
-                                    color = scheme.labelPrimary,
-                                    modifier = Modifier.padding(horizontal = 16.dp),
-                                )
-                                ReleaseNotes(
-                                    info!!.notes,
-                                    modifier = Modifier
+                        CxCard(
+                            cornerRadius = 20.dp,
+                            modifier = Modifier.animateContentSize(tween(220)),
+                        ) {
+                            Column(Modifier.fillMaxWidth()) {
+                                Row(
+                                    Modifier
                                         .fillMaxWidth()
-                                        .padding(start = 16.dp, end = 16.dp, top = 8.dp),
-                                )
+                                        .clickable { notesOpen = !notesOpen }
+                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        Loc.of("更新说明"),
+                                        fontSize = 15.sp,
+                                        color = scheme.labelPrimary,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Text(
+                                        if (notesOpen) Loc.of("收起") else Loc.of("展开"),
+                                        fontSize = 13.sp,
+                                        color = scheme.primary,
+                                    )
+                                }
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = notesOpen,
+                                    enter = androidx.compose.animation.expandVertically(tween(220)) +
+                                        androidx.compose.animation.fadeIn(tween(160)),
+                                    exit = androidx.compose.animation.shrinkVertically(tween(200)) +
+                                        androidx.compose.animation.fadeOut(tween(120)),
+                                ) {
+                                    ReleaseNotes(
+                                        info!!.notes,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(start = 16.dp, end = 16.dp, bottom = 18.dp),
+                                    )
+                                }
                             }
                         }
                     }
