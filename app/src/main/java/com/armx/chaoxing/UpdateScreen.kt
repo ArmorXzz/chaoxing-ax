@@ -39,6 +39,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -138,7 +139,8 @@ fun UpdateScreen(
         },
     ) { pad ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().overScrollVertical(),
+            modifier = Modifier.fillMaxSize().overScrollVertical()
+            .nestedScroll(behavior.nestedScrollConnection),
             contentPadding = PaddingValues(
                 top = pad.calculateTopPadding() + 4.dp,
                 bottom = pad.calculateBottomPadding() + 8.dp,

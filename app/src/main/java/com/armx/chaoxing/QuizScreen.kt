@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -69,7 +70,8 @@ fun QuizScreen(
             return@Scaffold
         }
         LazyColumn(
-            modifier = Modifier.fillMaxSize().overScrollVertical(),
+            modifier = Modifier.fillMaxSize().overScrollVertical()
+            .nestedScroll(behavior.nestedScrollConnection),
             contentPadding = PaddingValues(
                 top = pad.calculateTopPadding() + 4.dp,
                 bottom = LocalPageBottomInset.current + 24.dp,
