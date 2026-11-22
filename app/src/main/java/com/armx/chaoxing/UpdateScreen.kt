@@ -85,7 +85,6 @@ fun UpdateScreen(
     var phase by remember { mutableStateOf(UpPhase.Checking) }
     var info by remember { mutableStateOf<Update.Info?>(null) }
     var err by remember { mutableStateOf("") }
-    var notesOpen by remember { mutableStateOf(true) }
     var tried by remember { mutableStateOf(0) }
 
     fun check() {
@@ -310,29 +309,19 @@ fun UpdateScreen(
                     if (info?.notes?.isNotEmpty() == true) {
                         Spacer(Modifier.height(14.dp))
                         CxCard(cornerRadius = 20.dp) {
-                            Column(Modifier.fillMaxWidth()) {
-                                Row(
-                                    Modifier
+                            Column(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 18.dp)) {
+                                Text(
+                                    Loc.of("更新说明"),
+                                    fontSize = 15.sp,
+                                    color = scheme.labelPrimary,
+                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                )
+                                ReleaseNotes(
+                                    info!!.notes,
+                                    modifier = Modifier
                                         .fillMaxWidth()
-                                        .clickable { notesOpen = !notesOpen }
-                                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                ) {
-                                    Text(Loc.of("更新说明"), fontSize = 15.sp, color = scheme.labelPrimary)
-                                    Text(
-                                        if (notesOpen) Loc.of("收起") else Loc.of("展开"),
-                                        fontSize = 13.sp,
-                                        color = scheme.primary,
-                                    )
-                                }
-                                androidx.compose.animation.AnimatedVisibility(visible = notesOpen) {
-                                    Column(Modifier.height(320.dp).verticalScroll(rememberScrollState())) {
-                                        ReleaseNotes(
-                                            info!!.notes,
-                                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                                        )
-                                    }
-                                }
+                                        .padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                                )
                             }
                         }
                     }
