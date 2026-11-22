@@ -84,10 +84,11 @@ fun SettingsScreen(
     val behavior = COUIScrollBehavior(barState)
     val limitPx = with(androidx.compose.ui.platform.LocalDensity.current) { 58.dp.toPx() }
     androidx.compose.runtime.SideEffect {
-        if (barState.heightOffsetLimit != limitPx) barState.heightOffsetLimit = limitPx
+        if (barState.heightOffsetLimit == 0f) barState.heightOffsetLimit = -limitPx
     }
     androidx.compose.runtime.SideEffect {
-        barState.heightOffset = limitPx * scrollLink.fraction.coerceIn(0f, 1f)
+        val l = barState.heightOffsetLimit
+        if (l < 0f) barState.heightOffset = l * scrollLink.fraction.coerceIn(0f, 1f)
     }
     // 自绘的滚动比例直接喂给 COUI：nestedScroll 这条链路在部分机型上收不到增量，
     Scaffold(
