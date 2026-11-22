@@ -597,6 +597,13 @@ public final class Engine {
         }
         java.util.List<String> seq = bank == null ? java.util.Collections.<String>emptyList()
                 : bank.chapter(curChapter);
+        if (bank != null && seq.isEmpty() && job.name != null && !job.name.isEmpty()
+                && !job.name.equals(curChapter)) {
+            seq = bank.chapter(job.name);
+            if (!seq.isEmpty()) {
+                WorkLog.w(app, "doWork: chapter mismatch, fallback to job name [" + job.name + "] seq=" + seq.size());
+            }
+        }
         WorkLog.w(app, "doWork: job=" + job.jobid + " name=" + job.name
                 + " chapter=[" + curChapter + "] seq=" + seq.size()
                 + " bankChapters=" + bank.chapterTotal());
