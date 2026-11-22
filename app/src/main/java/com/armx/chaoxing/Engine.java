@@ -698,6 +698,7 @@ public final class Engine {
             return;
         }
         boolean submit = new Store(app).autoSubmit();
+        WorkLog.w(app, "doWork: submit=" + submit + " pyFlag=[" + (submit ? "" : "1") + "]");
         Http.Resp s = null;
         for (int attempt = 1; attempt <= 3; attempt++) {
             long t0 = System.currentTimeMillis();
@@ -715,16 +716,47 @@ public final class Engine {
             workDone.add(jid(course, job));
             workFinished++;
             verifyFilled(p, page);
+            checkSubmitted(p);
             rec(false, submit, hit, page.questions.size(), curChapter, job.name,
                     submit ? "已提交判分" : "已保存（未提交）");
         }
         if (s.code == 200) {
-            workNote = "已填好 " + hit + "/" + total + " 题并保存，还没提交，需自己到网页端点提交";
+            workNote = submit
+                    ? "已填好 " + hit + "/" + total + " 题并提交判分"
+                    : "已填好 " + hit + "/" + total + " 题并保存，未提交（可在设置里开启自动提交）";
         } else {
             workNote = "测验「" + job.name + "」答案保存失败（HTTP " + s.code + "）";
             rec(true, submit, hit, page.questions.size(), curChapter, job.name, workNote);
         }
         sleep(800 + rnd.nextInt(600));
+    }
+
+    /** 提交后再读一次页面，确认「已完成 / 待批阅」这类状态真的出现了。 */
+    private void checkSubmitted(Map<String, String> params) {
+        try {
+            Http.Resp again = http.get(WORK_URL, params, null);
+            if (again.code != 200 || again.body == null) {
+                WorkLog.w(app, "doWork: after-submit GET code=" + again.code);
+                return;
+            }
+            String b = again.body;
+            WorkLog.w(app, "doWork: after-submit 已完成=" + count(b, "已完成")
+                    + " 待批阅=" + count(b, "待批阅")
+                    + " 查看作答=" + count(b, "查看作答")
+                    + " 提交按钮=" + count(b, "btnSubmit")
+                    + " 答题卡=" + count(b, "answerCard"));
+        } catch (Exception e) {
+            WorkLog.w(app, "doWork: after-submit error " + e);
+        }
+    }
+
+    private static int count(String s, String sub) {
+        int n = 0, i = 0;
+        while ((i = s.indexOf(sub, i)) >= 0) {
+            n++;
+            i += sub.length();
+        }
+        return n;
     }
 
     /** 保存后回读一次：确认填空题文字真的落到了页面上。 */
