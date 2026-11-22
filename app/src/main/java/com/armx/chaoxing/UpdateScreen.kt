@@ -16,6 +16,9 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.runtime.mutableFloatStateOf
+import io.github.suqi8.coui.kmp.basic.LinearProgressIndicator
+import io.github.suqi8.coui.kmp.basic.ProgressIndicatorDefaults
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -105,6 +108,32 @@ fun UpdateScreen(
     val big = remember { BuildInfo.VERSION.split(".").take(2).joinToString(".") }
     val hasNew = phase == UpPhase.Newer
 
+    var dl by remember { mutableStateOf(false) }
+    var pct by remember { mutableFloatStateOf(0f) }
+    var dlErr by remember { mutableStateOf("") }
+
+    fun startDownload() {
+        if (dl) return
+        val apk = info?.apk.orEmpty()
+        if (apk.isEmpty()) {
+            dlErr = Loc.of("这个版本没有可下载的安装包")
+            return
+        }
+        dl = true
+        pct = 0f
+        dlErr = ""
+        scope.launch {
+            val r = withContext(Dispatchers.IO) {
+                runCatching { ApkFile.download(ctx, apk) { v -> pct = v } }
+            }
+            dl = false
+            r.onSuccess { f ->
+                runCatching { ApkFile.install(ctx, f) }
+                    .onFailure { dlErr = Loc.of("无法拉起系统安装器") }
+            }.onFailure { dlErr = it.message ?: Loc.of("下载失败") }
+        }
+    }
+
     Scaffold(
         modifier = modifier,
         containerColor = Color.Transparent,
@@ -128,20 +157,64 @@ fun UpdateScreen(
             }
         },
         bottomBar = {
-            Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp)) {
-                Button(
-                    onClick = { info?.let { Update.open(ctx, it.url) } },
-                    enabled = hasNew,
-                    modifier = Modifier.fillMaxWidth(),
-                    minHeight = 52.dp,
-                    insideMargin = PaddingValues(vertical = 14.dp),
-                    colors = if (hasNew) ButtonDefaults.buttonColorsPrimary()
-                    else ButtonDefaults.buttonColors(
-                        color = scheme.cardPressed,
-                        contentColor = scheme.disabledNeutral,
-                    ),
-                ) {
-                    Text(if (hasNew) Loc.of("下载安装包") else if (phase == UpPhase.Checking) Loc.of("正在检查更新") else Loc.of("已是最新版本"))
+            Column(
+                Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp)
+                    .padding(top = 8.dp, bottom = 26.dp)
+            ) {
+                Box(Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = { if (hasNew) startDownload() else if (phase == UpPhase.Failed) { tried++; check() } },
+                        enabled = hasNew || phase == UpPhase.Failed,
+                        modifier = Modifier.fillMaxWidth(),
+                        minHeight = 52.dp,
+                        insideMargin = PaddingValues(vertical = 14.dp),
+                        colors = if (hasNew || phase == UpPhase.Failed) ButtonDefaults.buttonColorsPrimary()
+                        else ButtonDefaults.buttonColors(
+                            color = scheme.cardPressed,
+                            contentColor = scheme.disabledNeutral,
+                        ),
+                    ) {
+                        Text(
+                            when {
+                                dl -> Loc.of("正在下载") + " " + (pct * 100).toInt() + "%"
+                                hasNew -> Loc.of("下载安装包")
+                                phase == UpPhase.Checking -> Loc.of("正在检查更新")
+                                phase == UpPhase.Failed -> Loc.of("重新检查")
+                                else -> Loc.of("已是最新版本")
+                            }
+                        )
+                    }
+                    if (dl) {
+                        LinearProgressIndicator(
+                            progress = pct,
+                            modifier = Modifier.align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .padding(horizontal = 26.dp, vertical = 9.dp),
+                            height = 3.dp,
+                            colors = ProgressIndicatorDefaults.progressIndicatorColors(
+                                foregroundColor = scheme.labelOnColor,
+                                backgroundColor = scheme.labelOnColor.copy(alpha = 0.25f),
+                            ),
+                        )
+                    }
+                }
+                if (hasNew) {
+                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        Text(
+                            Loc.of("改用浏览器下载"),
+                            fontSize = 12.5.sp,
+                            color = scheme.labelSecondaryVariant,
+                            modifier = Modifier.clickable { info?.let { Update.open(ctx, it.url) } },
+                        )
+                    }
+                }
+                if (dlErr.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(dlErr, fontSize = 12.sp, color = Color(0xFFE5484D))
                 }
             }
         },

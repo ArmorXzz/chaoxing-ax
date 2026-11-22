@@ -12,7 +12,15 @@ import java.net.URL
 object Update {
     private const val API = "https://api.github.com/repos/ArmorXzz/chaoxing-ax/releases/latest"
 
-    data class Info(val tag: String, val name: String, val notes: String, val url: String, val size: Long, val code: Int)
+    data class Info(
+        val tag: String,
+        val name: String,
+        val notes: String,
+        val url: String,
+        val size: Long,
+        val code: Int,
+        val apk: String,
+    )
 
     /** 同步请求，调用方负责放到 IO 线程。 */
     @Throws(IOException::class)
@@ -33,17 +41,19 @@ object Update {
             val notes = o.optString("body", "")
             val url = o.optString("html_url", "https://github.com/ArmorXzz/chaoxing-ax/releases")
             var size = 0L
+            var apk = ""
             val assets = o.optJSONArray("assets")
             if (assets != null) {
                 for (i in 0 until assets.length()) {
                     val a = assets.getJSONObject(i)
                     if (a.optString("name").endsWith(".apk", true)) {
                         size = a.optLong("size", 0L)
+                        apk = a.optString("browser_download_url", "")
                         break
                     }
                 }
             }
-            return Info(tag, name, notes, url, size, code(tag))
+            return Info(tag, name, notes, url, size, code(tag), apk)
         } finally {
             conn.disconnect()
         }
@@ -63,5 +73,73 @@ object Update {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
         }
+    }
+}
+
+/** 下载与安装：写外部私有目录 updates/update.apk，再用 FileProvider 交给系统安装器。 */
+object ApkFile {
+    private const val DIR = "updates"
+
+    fun target(ctx: Context): java.io.File {
+        val d = java.io.File(ctx.getExternalFilesDir(null), DIR)
+        if (!d.exists()) d.mkdirs()
+        return java.io.File(d, "update.apk")
+    }
+
+    @Throws(IOException::class)
+    fun download(ctx: Context, url: String, onProgress: (Float) -> Unit): java.io.File {
+        if (url.isEmpty()) throw IOException("没有可下载的安装包")
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 10000
+            readTimeout = 30000
+            instanceFollowRedirects = true
+            setRequestProperty("User-Agent", "chaoxing-ax/" + BuildInfo.VERSION)
+        }
+        try {
+            val code = conn.responseCode
+            if (code != 200) throw IOException("HTTP " + code)
+            val total = conn.contentLengthLong
+            val out = target(ctx)
+            val tmp = java.io.File(out.parentFile, "update.tmp")
+            conn.inputStream.use { input ->
+                java.io.FileOutputStream(tmp).use { fos ->
+                    val buf = ByteArray(64 * 1024)
+                    var done = 0L
+                    var last = -1
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n <= 0) break
+                        fos.write(buf, 0, n)
+                        done += n
+                        if (total > 0) {
+                            val p = (done * 100 / total).toInt()
+                            if (p != last) {
+                                last = p
+                                onProgress((done.toFloat() / total).coerceIn(0f, 1f))
+                            }
+                        }
+                    }
+                    fos.flush()
+                }
+            }
+            if (tmp.length() <= 0L) throw IOException("下载内容为空")
+            if (out.exists()) out.delete()
+            if (!tmp.renameTo(out)) throw IOException("无法写入安装包")
+            return out
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    fun install(ctx: Context, file: java.io.File) {
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            ctx, ctx.packageName + ".fileprovider", file,
+        )
+        val i = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        ctx.startActivity(i)
     }
 }
