@@ -482,46 +482,32 @@ fun CxRoot(
                             onDismiss = { confirmLogout = false },
                         )
                         if (!agreed) {
-                            OverlayDialog(
+                            OverlayUserStatementDialog(
                                 show = true,
-                                title = Loc.of("使用协议"),
-                                onDismissRequest = { },
-                                backgroundColor = scheme.backgroundWithCard.copy(alpha = 0.94f),
+                                onConfirm = {
+                                    store0.saveAgreed(true)
+                                    agreed = true
+                                },
+                                onExit = {
+                                    (controller.app as? android.app.Activity)?.finish()
+                                },
                                 backgroundModifier = if (blurOk) dialogBlur(backdrop, dark) else Modifier,
+                                logo = controller.appIcon?.let {
+                                    androidx.compose.ui.graphics.painter.BitmapPainter(it.asImageBitmap())
+                                },
+                                title = Loc.of("欢迎使用"),
+                                appName = "超星AX",
+                                appMessage = Loc.of("课程视频、文档与测验的本地自动化客户端"),
+                                statement = androidx.compose.ui.text.buildAnnotatedString {
+                                    append(Loc.of("继续即表示你已阅读并同意以下条款。"))
+                                },
+                                protocolText = agreementText(),
+                                confirmText = Loc.of("同意并继续"),
+                                exitText = Loc.of("不同意，退出"),
+                                backgroundColor = Color.Transparent,
                                 materialStroke = blurOk,
-                            ) {
-                                Column(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 24.dp, vertical = 6.dp),
-                                ) {
-                                    BasicText(
-                                        agreementText(),
-                                        style = COUITheme.textStyles.bodyS.copy(
-                                            color = scheme.labelSecondary,
-                                            lineHeight = 22.sp,
-                                        ),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .heightIn(max = 420.dp)
-                                            .verticalScroll(rememberScrollState()),
-                                    )
-                                    androidx.compose.foundation.layout.Spacer(Modifier.height(20.dp))
-                                    DialogButtonBar(
-                                        negative = DialogButtonBarAction(
-                                            text = Loc.of("不同意，退出"),
-                                            onClick = { (controller.app as? android.app.Activity)?.finish() },
-                                        ),
-                                        positive = DialogButtonBarAction(
-                                            text = Loc.of("同意并继续"),
-                                            onClick = {
-                                                store0.saveAgreed(true)
-                                                agreed = true
-                                            },
-                                        ),
-                                    )
-                                }
-                            }
+                                enableWindowDim = true,
+                            )
                         }
 
                         if (agreed && !guided) {
