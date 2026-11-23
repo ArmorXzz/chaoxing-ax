@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -75,30 +76,32 @@ fun AboutScreen(
 
     val behavior = COUIScrollBehavior(rememberTopAppBarState())
 
-    Scaffold(
-        modifier = modifier,
-        containerColor = Color.Transparent,
-        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
-        topBar = {
-            TopAppBar(
-                title = Loc.of("关于"),
-                subtitle = Loc.of("版本、更新与声明"),
-                navigationIcon = {
-                    CircleIcon(icon = CxIcons.Back, size = 40, iconSize = 20, onClick = onBack)
-                },
-                scrollBehavior = behavior,
-                defaultWindowInsetsPadding = false,
-                color = Color.Transparent,
-                showDivider = false,
-            )
-        },
-    ) { pad ->
+    Column(modifier = modifier.fillMaxSize()) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 12.dp, end = 16.dp, top = 6.dp, bottom = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CircleIcon(icon = CxIcons.Back, size = 40, iconSize = 20, onClick = onBack)
+            Spacer(Modifier.width(6.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    Loc.of("关于"),
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = scheme.labelPrimary,
+                )
+                Text(
+                    Loc.of("版本、更新与声明"),
+                    fontSize = 12.sp,
+                    color = scheme.labelSecondaryVariant,
+                )
+            }
+        }
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize().overScrollVertical()
-                .nestedScroll(behavior.nestedScrollConnection),
+            modifier = Modifier.fillMaxSize().overScrollVertical(),
             contentPadding = PaddingValues(
-                top = pad.calculateTopPadding() + 4.dp,
+                top = 4.dp,
                 bottom = LocalPageBottomInset.current + 24.dp,
             ),
         ) {
