@@ -515,14 +515,17 @@ fun CxRoot(
                                 store0.saveGuided(true)
                                 guided = true
                             }
-                            OverlayGuideDialog(
-                                show = true,
-                                pages = guidePages().map {
+                            val pages = remember(controller.lang) {
+                                guidePages().map {
                                     io.github.suqi8.coui.kmp.layout.GuideDialogPage(
                                         title = it.first,
                                         description = it.second,
                                     )
-                                },
+                                }
+                            }
+                            OverlayGuideDialog(
+                                show = true,
+                                pages = pages,
                                 onStart = { finish() },
                                 onSkip = { finish() },
                                 onDismissRequest = { finish() },
