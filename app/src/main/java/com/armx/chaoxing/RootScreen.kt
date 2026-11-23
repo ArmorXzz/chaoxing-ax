@@ -511,12 +511,27 @@ fun CxRoot(
                         }
 
                         if (agreed && !guided) {
-                            CxGuideDialog(
-                                pages = guidePages(),
-                                onFinish = {
-                                    store0.saveGuided(true)
-                                    guided = true
+                            val finish = {
+                                store0.saveGuided(true)
+                                guided = true
+                            }
+                            OverlayGuideDialog(
+                                show = true,
+                                pages = guidePages().map {
+                                    io.github.suqi8.coui.kmp.layout.GuideDialogPage(
+                                        title = it.first,
+                                        description = it.second,
+                                    )
                                 },
+                                onStart = { finish() },
+                                onSkip = { finish() },
+                                onDismissRequest = { finish() },
+                                skipText = Loc.of("跳过"),
+                                nextText = Loc.of("下一步"),
+                                startText = Loc.of("开始使用"),
+                                backgroundModifier = if (blurOk) dialogBlur(backdrop, dark) else Modifier,
+                                materialStroke = blurOk,
+                                imageHeight = io.github.suqi8.coui.kmp.layout.GuideDialogDefaults.ImageHeightSmall,
                             )
                         }
                     }

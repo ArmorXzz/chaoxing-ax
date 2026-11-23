@@ -184,14 +184,33 @@ fun AboutScreen(
     }
 
     // ---- 弹层 ----
-    if (dialog == 1 || dialog == 2 || dialog == 3) {
+    if (dialog == 1) {
+        io.github.suqi8.coui.kmp.overlay.OverlayUserStatementDialog(
+            show = true,
+            onConfirm = { dialog = 0 },
+            onExit = { dialog = 0 },
+            logo = controller.appIcon?.let {
+                androidx.compose.ui.graphics.painter.BitmapPainter(it.asImageBitmap())
+            },
+            title = Loc.of("使用协议"),
+            appName = "超星AX",
+            appMessage = Loc.of("首次启动时同意的五条"),
+            statement = buildAnnotatedString { append(Loc.of("以下为你在首次启动时同意的条款。")) },
+            protocolText = agreementText2(),
+            confirmText = Loc.of("知道了"),
+            exitText = Loc.of("关闭"),
+            backgroundColor = Color.Transparent,
+            materialStroke = true,
+            enableWindowDim = true,
+        )
+    }
+
+    if (dialog == 2 || dialog == 3) {
         val title = when (dialog) {
-            1 -> Loc.of("使用协议")
             2 -> Loc.of("用户说明")
             else -> Loc.of("第三方与许可")
         }
         val body = when (dialog) {
-            1 -> agreementText2()
             2 -> helpText()
             else -> licenseText()
         }

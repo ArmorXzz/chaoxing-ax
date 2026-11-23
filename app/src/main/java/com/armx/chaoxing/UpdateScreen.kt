@@ -226,7 +226,7 @@ fun UpdateScreen(
                 Column(Modifier.padding(horizontal = 16.dp)) {
                     CxCard(cornerRadius = 26.dp, modifier = Modifier.animateContentSize(tween(260))) {
                         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 22.dp)) {
-                            Text(big, fontSize = 64.sp, fontWeight = FontWeight.Bold, color = scheme.labelPrimary)
+                            Text(big, fontSize = 88.sp, fontWeight = FontWeight.Bold, color = Color(0xFFE5484D))
                             Spacer(Modifier.height(6.dp))
                             WaveDecor(height = 46.dp)
                             Spacer(Modifier.height(26.dp))
@@ -278,7 +278,7 @@ fun UpdateScreen(
                                     }
                                     Spacer(Modifier.height(14.dp))
                                     Text("超星AX", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = scheme.labelPrimary)
-                                    Text("Android · COUI 17", fontSize = 12.sp, color = scheme.labelSecondaryVariant)
+                                    Text(deviceLabel(), fontSize = 12.sp, color = scheme.labelSecondaryVariant)
                                 }
                             }
                         }
@@ -363,31 +363,55 @@ private fun WaveDecor(height: androidx.compose.ui.unit.Dp) {
     val c2 = scheme.primary.copy(alpha = 0.22f)
     val phase = rememberInfiniteTransition(label = "wave").animateFloat(
         initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(3200, easing = LinearEasing), RepeatMode.Restart),
+        targetValue = (2 * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(tween(2600, easing = LinearEasing), RepeatMode.Restart),
         label = "wavePhase",
     )
     Canvas(Modifier.fillMaxWidth().height(height)) {
         val w = size.width
         val h = size.height
-        val dx = (phase.value % 1f) * w
-        // 一个周期的曲线，向右平移一个屏宽后无缝接上。两条错开相位，形成流动感。
-        fun drawShifted(shift: Float, alpha: Color, stroke: Float) {
-            val p = Path().apply {
-                moveTo(-w + shift, h * 0.62f)
-                cubicTo(-w + shift + w * 0.28f, h * 0.05f, -w + shift + w * 0.62f, h * 1.05f, -w + shift + w, h * 0.34f)
-                cubicTo(-w + shift + w * 0.32f, h * 0.62f, -w + shift + w * 0.70f, h * 0.10f, -w + shift + w * 2, h * 0.34f)
+        // 整数个周期铺满整宽：x=0 与 x=w 的相位差恰为 2π 的整数倍，头尾天然对齐。
+        fun sine(amp: Float, cycles: Int, midY: Float, color: Color, strokeDp: Float) {
+            val p = Path()
+            val step = 4f
+            var x = 0f
+            while (x <= w) {
+                val theta = (2 * Math.PI).toFloat() * cycles * (x / w) - phase.value
+                val y = midY + amp * kotlin.math.sin(theta)
+                if (x == 0f) p.moveTo(x, y) else p.lineTo(x, y)
+                x += step
             }
-            drawPath(p, alpha, style = Stroke(width = stroke, cap = StrokeCap.Round))
+            drawPath(p, color, style = Stroke(width = strokeDp.dp.toPx(), cap = StrokeCap.Round))
         }
-        drawShifted(dx, c1, 3.dp.toPx())
-        drawShifted(dx - w, c1, 3.dp.toPx())
-        val p2 = Path().apply {
-            moveTo(-w + dx * 0.8f, h * 0.90f)
-            cubicTo(-w + dx * 0.8f + w * 0.34f, h * 0.40f, -w + dx * 0.8f + w * 0.70f, h * 1.20f, dx * 0.8f, h * 0.60f)
-            cubicTo(dx * 0.8f + w * 0.30f, h * 0.95f, dx * 0.8f + w * 0.70f, h * 0.20f, dx * 0.8f + w * 2, h * 0.60f)
-        }
-        drawPath(p2, c2, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
+        sine(h * 0.20f, 1, h * 0.52f, c1, 3f)
+        sine(h * 0.14f, 2, h * 0.74f, c2, 2f)
+    }
+}
+
+private fun deviceLabel(): String {
+    val raw = android.os.Build.MANUFACTURER ?: ""
+    val model = android.os.Build.MODEL ?: ""
+    val brand = when {
+        raw.equals("OnePlus", true) -> "一加"
+        raw.equals("Xiaomi", true) || raw.equals("Redmi", true) -> "小米"
+        raw.equals("HUAWEI", true) -> "华为"
+        raw.equals("HONOR", true) -> "荣耀"
+        raw.equals("OPPO", true) -> "OPPO"
+        raw.equals("vivo", true) -> "vivo"
+        raw.equals("samsung", true) -> "三星"
+        raw.equals("google", true) -> "Google"
+        raw.isEmpty() -> ""
+        else -> raw.replaceFirstChar { it.uppercase() }
+    }
+    val name = when {
+        model.uppercase().startsWith("PJZ110") -> "13"
+        model.uppercase().startsWith("PJZ") -> model.removePrefix("PJZ")
+        else -> model
+    }
+    return when {
+        brand.isEmpty() -> name
+        name.isEmpty() -> brand
+        else -> "$brand $name"
     }
 }
 
