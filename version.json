@@ -1,14 +1,14 @@
 {
-    "tag":  "v8.1.23",
-    "name":  "8.1.23",
-    "code":  153,
+    "tag":  "v8.1.24",
+    "name":  "8.1.24",
+    "code":  154,
     "assets":  [
                    {
-                       "browser_download_url":  "https://github.com/ArmorXzz/chaoxing-ax/releases/download/v8.1.23/ChaoxingAX-8.1.23.apk",
-                       "name":  "ChaoxingAX-8.1.23.apk",
+                       "browser_download_url":  "https://github.com/ArmorXzz/chaoxing-ax/releases/download/v8.1.24/ChaoxingAX-8.1.24.apk",
+                       "name":  "ChaoxingAX-8.1.24.apk",
                        "size":  13911727
                    }
                ],
-    "url":  "https://github.com/ArmorXzz/chaoxing-ax/releases/tag/v8.1.23",
-    "notes":  "### 变更\n\n- 更新检查与安装包下载支持国内直达：先请求 GitHub API，失败后依次尝试 cdn.jsdelivr.net、gcore.jsdelivr.net、ghfast.top、gh-proxy.com 上的 version.json\n- 下载安装包按「GitHub 原始地址 → ghfast.top → gh-proxy.com → gh.llkk.cc」自动重试\n- 仓库根目录新增 version.json 作为静态版本清单"
+    "url":  "https://github.com/ArmorXzz/chaoxing-ax/releases/tag/v8.1.24",
+    "notes":  "### 变更\n\n- 更新检查优先走 gcore.jsdelivr.net / gh-proxy.com 上的 version.json，其次 statically / raw.githack / cdn.jsdelivr.net\n- 安装包下载顺序：gh-proxy.com -\u003e ghfast.top -\u003e gh.llkk.cc -\u003e GitHub 原始地址\n- 仓库根目录 version.json 作为静态版本清单"
 }

@@ -14,20 +14,21 @@ object Update {
 
     /** 仓库根目录的静态清单，走 jsDelivr / ghfast 等国内可达的 CDN。 */
     private val MANIFEST = listOf(
-        "https://cdn.jsdelivr.net/gh/ArmorXzz/chaoxing-ax@main/version.json",
         "https://gcore.jsdelivr.net/gh/ArmorXzz/chaoxing-ax@main/version.json",
-        "https://ghfast.top/https://raw.githubusercontent.com/ArmorXzz/chaoxing-ax/main/version.json",
         "https://gh-proxy.com/https://raw.githubusercontent.com/ArmorXzz/chaoxing-ax/main/version.json",
+        "https://cdn.statically.io/gh/ArmorXzz/chaoxing-ax/main/version.json",
+        "https://raw.githack.com/ArmorXzz/chaoxing-ax/main/version.json",
+        "https://cdn.jsdelivr.net/gh/ArmorXzz/chaoxing-ax@main/version.json",
     )
 
     /** 安装包的候选地址：官方优先，失败再走镜像。 */
     fun sources(url: String): List<String> {
         if (url.isEmpty()) return emptyList()
         return listOf(
-            url,
-            "https://ghfast.top/" + url,
             "https://gh-proxy.com/" + url,
+            "https://ghfast.top/" + url,
             "https://gh.llkk.cc/" + url,
+            url,
         )
     }
 
