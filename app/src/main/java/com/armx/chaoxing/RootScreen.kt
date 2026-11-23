@@ -22,6 +22,8 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -39,6 +41,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -94,6 +97,7 @@ import io.github.suqi8.coui.kmp.effect.LocalMaterialBackdrop
 import io.github.suqi8.coui.kmp.layout.DialogButtonBar
 import io.github.suqi8.coui.kmp.layout.DialogButtonBarAction
 import io.github.suqi8.coui.kmp.overlay.OverlayDialog
+import androidx.compose.foundation.text.BasicText
 import io.github.suqi8.coui.kmp.overlay.OverlayUserStatementDialog
 import io.github.suqi8.coui.kmp.overlay.OverlayGuideDialog
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -230,7 +234,12 @@ fun CxRoot(
                 ) {
                     Scaffold(
                         containerColor = Color.Transparent,
-                        snackbarHost = { io.github.suqi8.coui.kmp.basic.SnackbarHost(snack) },
+                        snackbarHost = {
+                            io.github.suqi8.coui.kmp.basic.SnackbarHost(
+                                snack,
+                                modifier = Modifier.padding(bottom = 132.dp),
+                            )
+                        },
                     ) { pad ->
                         val navBottom = WindowInsets.navigationBars
                             .asPaddingValues()
@@ -473,44 +482,55 @@ fun CxRoot(
                             onDismiss = { confirmLogout = false },
                         )
                         if (!agreed) {
-                            OverlayUserStatementDialog(
+                            OverlayDialog(
                                 show = true,
-                                onConfirm = {
-                                    store0.saveAgreed(true)
-                                    agreed = true
-                                },
-                                onExit = {
-                                    (controller.app as? android.app.Activity)?.finish()
-                                },
-                                title = Loc.of("欢迎使用"),
-                                appName = "超星AX",
-                                appMessage = Loc.of("课程视频、文档与测验的本地自动化客户端"),
-                                statement = agreementText(),
-                                confirmText = Loc.of("同意并继续"),
-                                exitText = Loc.of("不同意，退出"),
-                                enableWindowDim = true,
-                            )
+                                title = Loc.of("使用协议"),
+                                onDismissRequest = { },
+                                backgroundColor = scheme.backgroundWithCard.copy(alpha = 0.94f),
+                                backgroundModifier = if (blurOk) dialogBlur(backdrop, dark) else Modifier,
+                                materialStroke = blurOk,
+                            ) {
+                                Column(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 24.dp, vertical = 6.dp),
+                                ) {
+                                    BasicText(
+                                        agreementText(),
+                                        style = COUITheme.textStyles.bodyS.copy(
+                                            color = scheme.labelSecondary,
+                                            lineHeight = 22.sp,
+                                        ),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .heightIn(max = 420.dp)
+                                            .verticalScroll(rememberScrollState()),
+                                    )
+                                    androidx.compose.foundation.layout.Spacer(Modifier.height(20.dp))
+                                    DialogButtonBar(
+                                        negative = DialogButtonBarAction(
+                                            text = Loc.of("不同意，退出"),
+                                            onClick = { (controller.app as? android.app.Activity)?.finish() },
+                                        ),
+                                        positive = DialogButtonBarAction(
+                                            text = Loc.of("同意并继续"),
+                                            onClick = {
+                                                store0.saveAgreed(true)
+                                                agreed = true
+                                            },
+                                        ),
+                                    )
+                                }
+                            }
                         }
 
                         if (agreed && !guided) {
-                            OverlayGuideDialog(
-                                show = true,
+                            CxGuideDialog(
                                 pages = guidePages(),
-                                onStart = {
+                                onFinish = {
                                     store0.saveGuided(true)
                                     guided = true
                                 },
-                                onSkip = {
-                                    store0.saveGuided(true)
-                                    guided = true
-                                },
-                                onDismissRequest = {
-                                    store0.saveGuided(true)
-                                    guided = true
-                                },
-                                skipText = Loc.of("跳过"),
-                                nextText = Loc.of("下一步"),
-                                startText = Loc.of("开始使用"),
                             )
                         }
                     }
@@ -704,6 +724,8 @@ private fun TabsPager(
     val tasksList = rememberLazyListState()
     val progressList = rememberLazyListState()
     val settingsList = rememberLazyListState()
+    // 每个标签各持一份折叠进度：切到别的页面再回来，原来的折叠状态还在。
+    val links = remember { List(3) { CxScrollLink() } }
     val pager = rememberPagerState(initialPage = controller.tab, pageCount = { 3 })
     // 只有滑动停稳后才回写选中项：动画经过中间页时不能改 tab，
     // 否则「任务 → 设置」会被中间页打断，停在进度页。
@@ -727,6 +749,7 @@ private fun TabsPager(
         beyondViewportPageCount = 1,
         userScrollEnabled = false,
     ) { index ->
+        CompositionLocalProvider(LocalCxScrollLink provides links[index]) {
         when (index) {
             0 -> TasksScreen(
                 controller = controller,
@@ -757,6 +780,7 @@ private fun TabsPager(
                 contentTop = top,
                 listState = settingsList,
             )
+        }
         }
     }
 }
@@ -814,16 +838,50 @@ private fun agreementText() = androidx.compose.ui.text.buildAnnotatedString {
 }
 
 private fun guidePages() = listOf(
-    io.github.suqi8.coui.kmp.layout.GuideDialogPage(
-        title = Loc.of("先登录，再选课"),
-        description = Loc.of("在任务页勾选要刷的课程，点「开始执行」，其余交给后台。"),
-    ),
-    io.github.suqi8.coui.kmp.layout.GuideDialogPage(
-        title = Loc.of("进度与失败都能追"),
-        description = Loc.of("进度页会按视频合并任务点，失败的点可以点进去看点位的原始报错。"),
-    ),
-    io.github.suqi8.coui.kmp.layout.GuideDialogPage(
-        title = Loc.of("AI 只补题库没覆盖的题"),
-        description = Loc.of("设置里打开「AI 自动答题」并填入 DeepSeek Key，默认只保存不提交。"),
-    ),
+    Loc.of("先登录，再选课") to Loc.of("在任务页勾选要刷的课程，点「开始执行」，其余交给后台。"),
+    Loc.of("进度与失败都能追") to Loc.of("进度页按视频合并任务点，失败的点可以点进去看原始报错。"),
+    Loc.of("AI 只补题库没覆盖的题") to Loc.of("设置里打开「AI 自动答题」并填入 DeepSeek Key，默认只保存不提交。"),
 )
+
+@Composable
+private fun CxGuideDialog(pages: List<Pair<String, String>>, onFinish: () -> Unit) {
+    val scheme = COUITheme.colorScheme
+    var page by remember { mutableStateOf(0) }
+    val last = page >= pages.lastIndex
+    OverlayDialog(
+        show = true,
+        title = Loc.of("快速上手"),
+        summary = (page + 1).toString() + " / " + pages.size,
+        onDismissRequest = onFinish,
+        backgroundColor = scheme.backgroundWithCard.copy(alpha = 0.94f),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 6.dp),
+        ) {
+            Text(
+                pages[page].first,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = scheme.labelPrimary,
+            )
+            androidx.compose.foundation.layout.Spacer(Modifier.height(10.dp))
+            Text(
+                pages[page].second,
+                style = COUITheme.textStyles.bodyS.copy(
+                    color = scheme.labelSecondary,
+                    lineHeight = 21.sp,
+                ),
+            )
+            androidx.compose.foundation.layout.Spacer(Modifier.height(20.dp))
+            DialogButtonBar(
+                negative = DialogButtonBarAction(text = Loc.of("跳过"), onClick = onFinish),
+                positive = DialogButtonBarAction(
+                    text = if (last) Loc.of("开始使用") else Loc.of("下一步"),
+                    onClick = { if (last) onFinish() else page += 1 },
+                ),
+            )
+        }
+    }
+}

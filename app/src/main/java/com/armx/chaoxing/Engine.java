@@ -336,6 +336,7 @@ public final class Engine {
         if (running || selected == null || selected.isEmpty()) return false;
         stopFlag.set(false);
         clearHint();
+        workDone.clear();
         tasks.clear();
         int par = store.parallel();
         sem = new Semaphore(par > 0 ? par : 999);
@@ -698,13 +699,16 @@ public final class Engine {
             if (q.changed) changed++;
         }
         WorkLog.w(app, "doWork: saved=" + cut(savedOf(page)) + " changed=" + changed + "/" + page.questions.size());
-        if (changed == 0) {
+        boolean submit = new Store(app).autoSubmit();
+        if (changed == 0 && !submit) {
             workNote = "测验「" + job.name + "」答案与题库一致，跳过重复提交";
-            WorkLog.w(app, "doWork: 全部一致，跳过提交");
+            WorkLog.w(app, "doWork: 全部一致且未开启自动提交，跳过");
             rec(false, false, hit, page.questions.size(), curChapter, job.name, "答案一致，已跳过提交");
             return;
         }
-        boolean submit = new Store(app).autoSubmit();
+        if (changed == 0) {
+            WorkLog.w(app, "doWork: 全部一致，但已开启自动提交，仍然提交");
+        }
         WorkLog.w(app, "doWork: submit=" + submit + " pyFlag=[" + (submit ? "" : "1") + "]");
         Http.Resp s = null;
         for (int attempt = 1; attempt <= 3; attempt++) {

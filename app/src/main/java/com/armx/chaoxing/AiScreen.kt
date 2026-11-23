@@ -28,7 +28,11 @@ import io.github.suqi8.coui.kmp.basic.CardListGroup
 import io.github.suqi8.coui.kmp.basic.Scaffold
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.basic.TextField
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import io.github.suqi8.coui.kmp.basic.COUIScrollBehavior
 import io.github.suqi8.coui.kmp.basic.TopAppBar
+import io.github.suqi8.coui.kmp.basic.rememberTopAppBarState
+import io.github.suqi8.coui.kmp.utils.overScrollVertical
 import io.github.suqi8.coui.kmp.preference.PreferenceCategory
 import io.github.suqi8.coui.kmp.preference.SwitchPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
@@ -45,6 +49,9 @@ fun AiScreen(
     var key by remember { mutableStateOf(controller.aiKey) }
     var bankKey by remember { mutableStateOf(controller.bankKey) }
 
+    val barState = rememberTopAppBarState()
+    val behavior = COUIScrollBehavior(barState)
+
     Scaffold(
         modifier = modifier,
         containerColor = Color.Transparent,
@@ -56,6 +63,7 @@ fun AiScreen(
                 navigationIcon = {
                     CircleIcon(icon = CxIcons.Back, size = 40, iconSize = 20, onClick = onBack)
                 },
+                scrollBehavior = behavior,
                 defaultWindowInsetsPadding = false,
                 color = Color.Transparent,
                 showDivider = false,
@@ -64,7 +72,7 @@ fun AiScreen(
     ) { pad ->
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().overScrollVertical().nestedScroll(behavior.nestedScrollConnection),
             contentPadding = PaddingValues(top = pad.calculateTopPadding() + 8.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {

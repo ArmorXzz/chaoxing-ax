@@ -105,7 +105,7 @@ fun UpdateScreen(
 
     androidx.compose.runtime.LaunchedEffect(tried) { if (tried == 0) check() }
 
-    val big = remember { BuildInfo.VERSION.split(".").take(2).joinToString(".") }
+    val big = remember { BuildInfo.VERSION.split(".").first() }
     val hasNew = phase == UpPhase.Newer
 
     var dl by remember { mutableStateOf(false) }
@@ -306,7 +306,6 @@ fun UpdateScreen(
                         Spacer(Modifier.height(14.dp))
                         CxCard(
                             cornerRadius = 20.dp,
-                            modifier = Modifier.animateContentSize(tween(220)),
                         ) {
                             Column(Modifier.fillMaxWidth()) {
                                 Row(
@@ -362,18 +361,32 @@ private fun WaveDecor(height: androidx.compose.ui.unit.Dp) {
     val scheme = COUITheme.colorScheme
     val c1 = scheme.primary.copy(alpha = 0.55f)
     val c2 = scheme.primary.copy(alpha = 0.22f)
+    val phase = rememberInfiniteTransition(label = "wave").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(3200, easing = LinearEasing), RepeatMode.Restart),
+        label = "wavePhase",
+    )
     Canvas(Modifier.fillMaxWidth().height(height)) {
         val w = size.width
         val h = size.height
-        val p1 = Path().apply {
-            moveTo(0f, h * 0.62f)
-            cubicTo(w * 0.28f, h * 0.05f, w * 0.62f, h * 1.05f, w, h * 0.34f)
+        val dx = (phase.value % 1f) * w
+        // 一个周期的曲线，向右平移一个屏宽后无缝接上。两条错开相位，形成流动感。
+        fun drawShifted(shift: Float, alpha: Color, stroke: Float) {
+            val p = Path().apply {
+                moveTo(-w + shift, h * 0.62f)
+                cubicTo(-w + shift + w * 0.28f, h * 0.05f, -w + shift + w * 0.62f, h * 1.05f, -w + shift + w, h * 0.34f)
+                cubicTo(-w + shift + w * 0.32f, h * 0.62f, -w + shift + w * 0.70f, h * 0.10f, -w + shift + w * 2, h * 0.34f)
+            }
+            drawPath(p, alpha, style = Stroke(width = stroke, cap = StrokeCap.Round))
         }
+        drawShifted(dx, c1, 3.dp.toPx())
+        drawShifted(dx - w, c1, 3.dp.toPx())
         val p2 = Path().apply {
-            moveTo(0f, h * 0.90f)
-            cubicTo(w * 0.34f, h * 0.40f, w * 0.70f, h * 1.20f, w, h * 0.60f)
+            moveTo(-w + dx * 0.8f, h * 0.90f)
+            cubicTo(-w + dx * 0.8f + w * 0.34f, h * 0.40f, -w + dx * 0.8f + w * 0.70f, h * 1.20f, dx * 0.8f, h * 0.60f)
+            cubicTo(dx * 0.8f + w * 0.30f, h * 0.95f, dx * 0.8f + w * 0.70f, h * 0.20f, dx * 0.8f + w * 2, h * 0.60f)
         }
-        drawPath(p1, c1, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round))
         drawPath(p2, c2, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
     }
 }
