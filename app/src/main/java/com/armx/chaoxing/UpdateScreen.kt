@@ -128,7 +128,7 @@ fun UpdateScreen(
         dlErr = ""
         scope.launch {
             val r = withContext(Dispatchers.IO) {
-                runCatching { ApkFile.download(ctx, apk) { v -> pct = v } }
+                runCatching { ApkFile.download(ctx, Update.sources(apk)) { v -> pct = v } }
             }
             dl = false
             r.onSuccess { f ->

@@ -12,6 +12,25 @@ import java.net.URL
 object Update {
     private const val API = "https://api.github.com/repos/ArmorXzz/chaoxing-ax/releases/latest"
 
+    /** 仓库根目录的静态清单，走 jsDelivr / ghfast 等国内可达的 CDN。 */
+    private val MANIFEST = listOf(
+        "https://cdn.jsdelivr.net/gh/ArmorXzz/chaoxing-ax@main/version.json",
+        "https://gcore.jsdelivr.net/gh/ArmorXzz/chaoxing-ax@main/version.json",
+        "https://ghfast.top/https://raw.githubusercontent.com/ArmorXzz/chaoxing-ax/main/version.json",
+        "https://gh-proxy.com/https://raw.githubusercontent.com/ArmorXzz/chaoxing-ax/main/version.json",
+    )
+
+    /** 安装包的候选地址：官方优先，失败再走镜像。 */
+    fun sources(url: String): List<String> {
+        if (url.isEmpty()) return emptyList()
+        return listOf(
+            url,
+            "https://ghfast.top/" + url,
+            "https://gh-proxy.com/" + url,
+            "https://gh.llkk.cc/" + url,
+        )
+    }
+
     data class Info(
         val tag: String,
         val name: String,
@@ -22,41 +41,56 @@ object Update {
         val apk: String,
     )
 
-    /** 同步请求，调用方负责放到 IO 线程。 */
+    /** 同步请求，调用方负责放到 IO 线程：先 GitHub API，失败再走国内 CDN 上的 version.json。 */
     @Throws(IOException::class)
     fun latest(): Info {
-        val conn = (URL(API).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 8000
-            readTimeout = 12000
-            setRequestProperty("Accept", "application/vnd.github+json")
+        var last: IOException? = null
+        runCatching { fetch(API, true) }.onSuccess { return it }.onFailure {
+            last = (it as? IOException) ?: IOException(it.message)
+        }
+        for (m in MANIFEST) {
+            runCatching { fetch(m, false) }.onSuccess { return it }
+        }
+        throw last ?: IOException("检查更新失败")
+    }
+
+    private fun fetch(url: String, api: Boolean): Info {
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 6000
+            readTimeout = 10000
+            instanceFollowRedirects = true
+            setRequestProperty("Accept", if (api) "application/vnd.github+json" else "application/json")
             setRequestProperty("User-Agent", "chaoxing-ax/" + BuildInfo.VERSION)
         }
         try {
             val code = conn.responseCode
             if (code != 200) throw IOException("HTTP $code")
-            val text = conn.inputStream.bufferedReader().use { it.readText() }
-            val o = JSONObject(text)
-            val tag = o.optString("tag_name", "").ifEmpty { "?" }
-            val name = o.optString("name", tag)
-            val notes = o.optString("body", "")
-            val url = o.optString("html_url", "https://github.com/ArmorXzz/chaoxing-ax/releases")
-            var size = 0L
-            var apk = ""
-            val assets = o.optJSONArray("assets")
-            if (assets != null) {
-                for (i in 0 until assets.length()) {
-                    val a = assets.getJSONObject(i)
-                    if (a.optString("name").endsWith(".apk", true)) {
-                        size = a.optLong("size", 0L)
-                        apk = a.optString("browser_download_url", "")
-                        break
-                    }
-                }
-            }
-            return Info(tag, name, notes, url, size, code(tag), apk)
+            return parse(conn.inputStream.bufferedReader().use { it.readText() }, api)
         } finally {
             conn.disconnect()
         }
+    }
+
+    private fun parse(text: String, api: Boolean): Info {
+        val o = JSONObject(text)
+        val tag = (if (api) o.optString("tag_name", "") else o.optString("tag", "")).ifEmpty { "?" }
+        val name = o.optString("name", tag).ifEmpty { tag }
+        val notes = o.optString(if (api) "body" else "notes", "")
+        val url = o.optString("html_url", o.optString("url", "https://github.com/ArmorXzz/chaoxing-ax/releases"))
+        var size = 0L
+        var apk = ""
+        val assets = o.optJSONArray("assets")
+        if (assets != null) {
+            for (i in 0 until assets.length()) {
+                val a = assets.getJSONObject(i)
+                if (a.optString("name").endsWith(".apk", true)) {
+                    size = a.optLong("size", 0L)
+                    apk = a.optString("browser_download_url", a.optString("apk", ""))
+                    break
+                }
+            }
+        }
+        return Info(tag, name, notes, url, size, code(tag), apk)
     }
 
     /** tag 里的数字部分，用于比较。 */
@@ -86,9 +120,20 @@ object ApkFile {
         return java.io.File(d, "update.apk")
     }
 
+    /** 依次尝试候选地址（官方 → 国内镜像），第一个成功的写盘。 */
     @Throws(IOException::class)
-    fun download(ctx: Context, url: String, onProgress: (Float) -> Unit): java.io.File {
-        if (url.isEmpty()) throw IOException("没有可下载的安装包")
+    fun download(ctx: Context, urls: List<String>, onProgress: (Float) -> Unit): java.io.File {
+        if (urls.isEmpty()) throw IOException("没有可下载的安装包")
+        var last: IOException? = null
+        for (u in urls) {
+            val r = runCatching { downloadOne(ctx, u, onProgress) }
+            r.getOrNull()?.let { return it }
+            last = (r.exceptionOrNull() as? IOException) ?: IOException(r.exceptionOrNull()?.message)
+        }
+        throw last ?: IOException("下载失败")
+    }
+
+    private fun downloadOne(ctx: Context, url: String, onProgress: (Float) -> Unit): java.io.File {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 10000
             readTimeout = 30000
