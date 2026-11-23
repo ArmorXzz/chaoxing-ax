@@ -57,6 +57,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.suqi8.coui.kmp.basic.Button
+import io.github.suqi8.coui.kmp.basic.InstallLoadProgress
+import io.github.suqi8.coui.kmp.basic.InstallLoadState
+import io.github.suqi8.coui.kmp.basic.InstallLoadStyle
 import io.github.suqi8.coui.kmp.basic.ButtonDefaults
 import io.github.suqi8.coui.kmp.basic.COUIScrollBehavior
 import io.github.suqi8.coui.kmp.basic.Scaffold
@@ -156,43 +159,33 @@ fun UpdateScreen(
                 Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp)
                     .padding(top = 8.dp, bottom = 26.dp)
             ) {
-                Box(Modifier.fillMaxWidth()) {
-                    Button(
-                        onClick = { if (hasNew) startDownload() else if (phase == UpPhase.Failed) { tried++; check() } },
-                        enabled = hasNew || phase == UpPhase.Failed,
-                        modifier = Modifier.fillMaxWidth(),
-                        minHeight = 52.dp,
-                        insideMargin = PaddingValues(vertical = 14.dp),
-                        colors = if (hasNew || phase == UpPhase.Failed) ButtonDefaults.buttonColorsPrimary()
-                        else ButtonDefaults.buttonColors(
-                            color = scheme.cardPressed,
-                            contentColor = scheme.disabledNeutral,
-                        ),
-                    ) {
-                        Text(
-                            when {
-                                dl -> Loc.of("正在下载") + " " + (pct * 100).toInt() + "%"
-                                hasNew -> Loc.of("下载安装包")
-                                phase == UpPhase.Checking -> Loc.of("正在检查更新")
-                                phase == UpPhase.Failed -> Loc.of("重新检查")
-                                else -> Loc.of("已是最新版本")
+                InstallLoadProgress(
+                    text = when {
+                        dl -> Loc.of("正在下载") + " " + (pct * 100).toInt() + "%"
+                        hasNew -> Loc.of("下载安装包")
+                        phase == UpPhase.Checking -> Loc.of("正在检查更新")
+                        phase == UpPhase.Failed -> Loc.of("重新检查")
+                        else -> Loc.of("已是最新版本")
+                    },
+                    onClick = {
+                        if (!dl) {
+                            if (hasNew) startDownload()
+                            else if (phase == UpPhase.Failed) {
+                                tried++
+                                check()
                             }
-                        )
-                    }
-                    if (dl) {
-                        LinearProgressIndicator(
-                            progress = pct,
-                            modifier = Modifier.align(Alignment.BottomCenter)
-                                .fillMaxWidth()
-                                .padding(horizontal = 26.dp, vertical = 9.dp),
-                            height = 3.dp,
-                            colors = ProgressIndicatorDefaults.progressIndicatorColors(
-                                foregroundColor = scheme.labelOnColor,
-                                backgroundColor = scheme.labelOnColor.copy(alpha = 0.25f),
-                            ),
-                        )
-                    }
-                }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    state = when {
+                        dl -> InstallLoadState.Loading
+                        phase == UpPhase.Failed || dlErr.isNotEmpty() -> InstallLoadState.Failed
+                        else -> InstallLoadState.Idle
+                    },
+                    progress = pct,
+                    enabled = hasNew || phase == UpPhase.Failed,
+                    style = InstallLoadStyle.Large,
+                )
                 if (hasNew) {
                     Spacer(Modifier.height(10.dp))
                     Row(
