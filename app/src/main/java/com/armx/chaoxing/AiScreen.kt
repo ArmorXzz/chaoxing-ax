@@ -77,17 +77,6 @@ fun AiScreen(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             item {
-                PreferenceCategory(title = Loc.of("开关"))
-                AiGroup {
-                    SwitchPreference(
-                        checked = controller.aiOn,
-                        onCheckedChange = { controller.applyAiOn(it) },
-                        title = Loc.of("AI 自动答题"),
-                        summary = Loc.of("题库里没有的题交给 DeepSeek 作答"),
-                    )
-                }
-            }
-            item {
                 PreferenceCategory(title = Loc.of("接口"))
                 AiGroup {
                     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
