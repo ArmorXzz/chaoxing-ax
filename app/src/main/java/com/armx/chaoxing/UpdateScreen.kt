@@ -108,7 +108,9 @@ fun UpdateScreen(
 
     androidx.compose.runtime.LaunchedEffect(tried) { if (tried == 0) check() }
 
-    val big = remember { BuildInfo.VERSION.split(".").first() }
+    val parts = remember { BuildInfo.VERSION.split(".") }
+    val major = parts.getOrNull(0).orEmpty()
+    val minorText = parts.getOrNull(1)?.let { ".$it" }.orEmpty()
     val hasNew = phase == UpPhase.Newer
 
     var dl by remember { mutableStateOf(false) }
@@ -219,7 +221,21 @@ fun UpdateScreen(
                 Column(Modifier.padding(horizontal = 16.dp)) {
                     CxCard(cornerRadius = 26.dp, modifier = Modifier.animateContentSize(tween(260))) {
                         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 22.dp)) {
-                            Text(big, fontSize = 88.sp, fontWeight = FontWeight.Bold, color = Color(0xFFE5484D))
+                            Row(verticalAlignment = Alignment.Bottom) {
+                                Text(
+                                    major,
+                                    fontSize = 88.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFE5484D),
+                                )
+                                Text(
+                                    minorText,
+                                    fontSize = 40.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFE5484D),
+                                    modifier = Modifier.padding(bottom = 10.dp),
+                                )
+                            }
                             Spacer(Modifier.height(6.dp))
                             WaveDecor(height = 46.dp)
                             Spacer(Modifier.height(26.dp))
